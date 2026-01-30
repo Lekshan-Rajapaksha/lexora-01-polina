@@ -27,6 +27,17 @@
 
         <!-- Sections are loaded from separate HTML files -->
         <div id="bakery" class="section active">
+            <div class="shop-header"
+                style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); margin-bottom: 25px; box-shadow: 0 10px 35px rgba(230, 126, 34, 0.2);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; color: white;">🍞 Bakery Management</h2>
+                    <button class="btn btn-add-shop-item" onclick="openAddBakeryModal()"
+                        style="background: white; color: #d35400;">
+                        ➕ Add Bakery Item
+                    </button>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -37,6 +48,7 @@
                             <th>Balanced Items</th>
                             <th>Unit Price (LKR)</th>
                             <th>Total Profit (LKR)</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="bakery-table-body">
@@ -45,39 +57,264 @@
             </div>
         </div>
 
+        <!-- Add/Edit Bakery Item Modal -->
+        <div id="addBakeryItemModal" class="modal">
+            <div class="modal-content modal-shop">
+                <div class="modal-header">
+                    <h3 id="bakery-modal-title">🍞 Add Bakery Item</h3>
+                    <button class="modal-close" onclick="closeBakeryModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="bakery-item-id">
+                    <div class="form-group">
+                        <label>Select Food Item (Menu) *</label>
+                        <select id="bakery-food-select" onchange="autoFillBakeryPrice()">
+                            <option value="">-- Choose Food Item --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Item Name (or Custom) *</label>
+                        <input type="text" id="bakery-item-name" placeholder="Auto-filled or type custom name">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Baked Qty *</label>
+                        <input type="number" id="bakery-baked-qty" placeholder="e.g., 50" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Sold Qty</label>
+                        <input type="number" id="bakery-sold-qty" placeholder="e.g., 0" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit Price (LKR) *</label>
+                        <input type="number" id="bakery-unit-price" placeholder="Auto-filled from menu" readonly
+                            style="background: linear-gradient(135deg, #ecf0f1 0%, #d5dbdb 100%); font-weight: 700;">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel" onclick="closeBakeryModal()">Cancel</button>
+                    <button class="btn btn-save" onclick="saveBakeryItem()">Save Item</button>
+                </div>
+            </div>
+        </div>
+
         <div id="shop" class="section">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Product Name</th>
-                            <th>Stock Count</th>
-                            <th>Sold Today</th>
-                            <th>Remaining</th>
-                            <th>Profit (LKR)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="shop-table-body">
-                    </tbody>
-                </table>
+            <div class="shop-header">
+                <h2>🛒 Shop Management</h2>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="shop-tabs">
+                <button class="shop-tab-btn active" id="tab-foods" onclick="switchShopTab('foods')">
+                    🍽️ Foods
+                </button>
+                <button class="shop-tab-btn" id="tab-grocery" onclick="switchShopTab('grocery')">
+                    🛍️ Grocery Items
+                </button>
+            </div>
+
+            <!-- Foods Section -->
+            <div class="shop-tab-content active" id="content-foods">
+                <div class="shop-section-header">
+                    <h3>🍽️ Food Items</h3>
+                    <button class="btn btn-add-shop-item" onclick="openAddShopItemModal('foods')">
+                        ➕ Add Food Item
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product Name</th>
+                                <th>Sold Today</th>
+                                <th>Revenue (LKR)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="foods-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Grocery Section -->
+            <div class="shop-tab-content" id="content-grocery">
+                <div class="shop-section-header">
+                    <h3>🛍️ Grocery Items</h3>
+                    <button class="btn btn-add-shop-item" onclick="openAddShopItemModal('grocery')">
+                        ➕ Add Grocery Item
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product Name</th>
+                                <th>Stock Count</th>
+                                <th>Sold Today</th>
+                                <th>Remaining</th>
+                                <th>Profit (LKR)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grocery-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Shop Item Modal -->
+        <div id="addShopItemModal" class="modal">
+            <div class="modal-content modal-shop">
+                <div class="modal-header">
+                    <h3 id="shop-modal-title">➕ Add New Item</h3>
+                    <button class="modal-close" onclick="closeAddShopItemModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Food Item Form (with dropdown) -->
+                    <div id="food-item-form" class="shop-item-form" style="display: none;">
+                        <div class="form-group">
+                            <label>Select Food Item *</label>
+                            <select id="shop-food-select" onchange="autoFillFoodPrice()">
+                                <option value="">-- Choose Food Item --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Price (LKR)</label>
+                            <input type="number" id="shop-food-price" placeholder="Auto-filled from menu" readonly
+                                style="background: linear-gradient(135deg, #ecf0f1 0%, #d5dbdb 100%); font-weight: 700;">
+                            <small style="color: #666; margin-top: 5px; display: block;">Price automatically filled from
+                                menu</small>
+                        </div>
+                    </div>
+
+                    <!-- Grocery Item Form (manual input) -->
+                    <div id="grocery-item-form" class="shop-item-form" style="display: none;">
+                        <div class="form-group">
+                            <label>Product Name *</label>
+                            <input type="text" id="shop-grocery-name" placeholder="e.g., Coca Cola, Water Bottle">
+                        </div>
+                        <div class="form-group">
+                            <label>Initial Stock Count *</label>
+                            <input type="number" id="shop-grocery-stock" placeholder="e.g., 100" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Price Per Unit (LKR) *</label>
+                            <input type="number" id="shop-grocery-price" placeholder="e.g., 150" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Profit Margin (%) *</label>
+                            <input type="number" id="shop-grocery-margin" placeholder="e.g., 20" value="20" step="0.1"
+                                min="0" max="100">
+                            <small style="color: #666; margin-top: 5px; display: block;">Percentage profit on each
+                                sale</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel" onclick="closeAddShopItemModal()">Cancel</button>
+                    <button class="btn btn-save" onclick="saveShopItem()">➕ Add Item</button>
+                </div>
             </div>
         </div>
 
         <div id="kitchen" class="section">
+            <div class="kitchen-header">
+                <h2>Kitchen Inventory Management</h2>
+                <button class="btn btn-add-new-type" onclick="openNewIngredientModal()">
+                    ✨ Add New Ingredient Type
+                </button>
+            </div>
+
+            <!-- Add Stock to Existing Ingredients Form -->
+            <div class="kitchen-add-form">
+                <h3 class="form-title">📦 Add Stock for Existing Ingredients</h3>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>Select Ingredient</label>
+                        <select id="kitchen-ingredient-select" onchange="updateExistingIngredientInfo()">
+                            <option value="">-- Choose Ingredient --</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label>Quantity to Add</label>
+                        <div class="qty-input-group">
+                            <input type="number" id="kitchen-arrived-qty-existing" placeholder="0">
+                            <input type="text" id="kitchen-arrived-unit-existing" readonly
+                                style="flex: 1; background: #f0f0f0;">
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label>Full Price (LKR)</label>
+                        <input type="number" id="kitchen-price-existing" placeholder="e.g., 3000" step="0.01">
+                    </div>
+                    <div class="form-field form-actions">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-save-kitchen" onclick="addExistingIngredientStock()">
+                            📦 Add Stock
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Ingredient</th>
+                            <th>#</th>
+                            <th>Ingredient Name</th>
                             <th>Arrived Qty</th>
                             <th>Used Qty</th>
                             <th>Currently Available</th>
-                            <th>Action</th>
+                            <th>Full Price (LKR)</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="kitchen-table-body">
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Floating Widget Modal for New Ingredient Type -->
+        <div id="newIngredientModal" class="modal">
+            <div class="modal-content modal-kitchen">
+                <div class="modal-header">
+                    <h3>✨ Add New Ingredient Type</h3>
+                    <button class="modal-close" onclick="closeNewIngredientModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Ingredient Name *</label>
+                        <input type="text" id="kitchen-ingredient-name-new" placeholder="e.g., Rice, Chicken, Oil">
+                    </div>
+                    <div class="form-group">
+                        <label>Initial Quantity *</label>
+                        <div class="qty-input-group">
+                            <input type="number" id="kitchen-arrived-qty-new" placeholder="0" style="flex: 2;">
+                            <select id="kitchen-arrived-unit-new" style="flex: 1;">
+                                <option value="g">g</option>
+                                <option value="KG" selected>KG</option>
+                                <option value="Liter">Liter</option>
+                                <option value="Pcs">Pcs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Price (LKR) *</label>
+                        <input type="number" id="kitchen-price-new" placeholder="e.g., 6000" step="0.01">
+                        <small style="color: #666; margin-top: 5px; display: block;">Total price for the initial
+                            quantity</small>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel" onclick="closeNewIngredientModal()">Cancel</button>
+                    <button class="btn btn-save" onclick="saveNewIngredient()">✨ Add New Type</button>
+                </div>
             </div>
         </div>
 
@@ -93,25 +330,31 @@
         </div>
 
         <div id="salary" class="section">
-            <div class="salary-header">
-                <h2>Employee Daily Wage Management</h2>
-                <div class="payroll-summary">
-                    <div class="summary-card">
-                        <span class="summary-label">Total Employees</span>
-                        <span class="summary-value" id="total-employees">0</span>
-                    </div>
-                    <div class="summary-card">
-                        <span class="summary-label">Total Earned</span>
-                        <span class="summary-value" id="total-earned">LKR 0</span>
-                    </div>
-                    <div class="summary-card">
-                        <span class="summary-label">Total Paid</span>
-                        <span class="summary-value" id="total-paid">LKR 0</span>
-                    </div>
-                    <div class="summary-card highlight">
-                        <span class="summary-label">Balance Due</span>
-                        <span class="summary-value" id="balance-due">LKR 0</span>
-                    </div>
+            <div class="salary-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); padding: 20px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <h2 style="color: white; margin: 0;">Employee Daily Wage Management</h2>
+                <button class="btn btn-add-shop-item" onclick="openAddEmployeeModal()"
+                    style="background: white; color: #2c3e50; font-weight: 800; border: none; padding: 12px 24px; border-radius: 8px;">
+                    ➕ Add New Employee
+                </button>
+            </div>
+
+            <div class="payroll-summary" style="margin-bottom: 30px;">
+                <div class="summary-card">
+                    <span class="summary-label">Total Employees</span>
+                    <span class="summary-value" id="total-employees">0</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Total Earned</span>
+                    <span class="summary-value" id="total-earned">LKR 0</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Total Paid</span>
+                    <span class="summary-value" id="total-paid">LKR 0</span>
+                </div>
+                <div class="summary-card highlight">
+                    <span class="summary-label">Balance Due</span>
+                    <span class="summary-value" id="balance-due">LKR 0</span>
                 </div>
             </div>
 
@@ -133,6 +376,34 @@
                     <tbody id="salary-table-body">
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Add Employee Modal -->
+        <div id="addEmployeeModal" class="modal">
+            <div class="modal-content modal-shop">
+                <div class="modal-header">
+                    <h3>👤 Add New Employee</h3>
+                    <button class="modal-close" onclick="closeAddEmployeeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Employee Name *</label>
+                        <input type="text" id="emp-name" placeholder="e.g., Kamal Perera">
+                    </div>
+                    <div class="form-group">
+                        <label>Department / Role *</label>
+                        <input type="text" id="emp-role" placeholder="e.g., Waiter, Chef, Cashier">
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Salary (LKR) *</label>
+                        <input type="number" id="emp-daily-salary" placeholder="e.g., 2000" min="0">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel" onclick="closeAddEmployeeModal()">Cancel</button>
+                    <button class="btn btn-save" onclick="saveNewEmployee()">Save Employee</button>
+                </div>
             </div>
         </div>
     </div>
@@ -161,6 +432,50 @@
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-save" onclick="saveFoodChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kitchen Ingredient Modal -->
+    <div id="kitchenModal" class="modal">
+        <div class="modal-content">
+            <h3 id="kitchen-modal-title">Add New Ingredient</h3>
+            <div class="form-group">
+                <label>Ingredient Name *</label>
+                <input type="text" id="kitchen-modal-name" placeholder="e.g., Rice, Chicken, Oil">
+            </div>
+            <div class="form-group">
+                <label>Arrived Quantity *</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="kitchen-modal-arrived" placeholder="0" style="flex: 2;">
+                    <select id="kitchen-modal-arrived-unit" style="flex: 1;">
+                        <option value="g">g</option>
+                        <option value="KG" selected>KG</option>
+                        <option value="Liter">Liter</option>
+                        <option value="Pcs">Pcs</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Used Quantity</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="kitchen-modal-used" placeholder="0" style="flex: 2;" value="0">
+                    <select id="kitchen-modal-used-unit" style="flex: 1;">
+                        <option value="g">g</option>
+                        <option value="KG" selected>KG</option>
+                        <option value="Liter">Liter</option>
+                        <option value="Pcs">Pcs</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Full Price (LKR) *</label>
+                <input type="number" id="kitchen-modal-price" placeholder="e.g., 6000" step="0.01">
+                <small style="color: #666;">Enter the total price for all arrived quantity</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeKitchenModal()">Cancel</button>
+                <button class="btn btn-save" onclick="saveKitchenItem()">Save</button>
             </div>
         </div>
     </div>

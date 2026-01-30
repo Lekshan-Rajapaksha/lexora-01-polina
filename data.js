@@ -6,15 +6,22 @@ let bakeryData = [
     { id: 3, name: "Bread", baked: 40, sold: 40, price: 120 }
 ];
 
-let shopData = [
-    { id: 1, name: "Coca Cola 500ml", stock: 50, sold: 10, price: 150 },
-    { id: 2, name: "Water Bottle 1L", stock: 100, sold: 25, price: 100 }
+
+let foodsShopData = [
+    { id: 1, name: "Fried Rice", stock: 50, sold: 10, pricePerUnit: 650, profitMargin: 25 },
+    { id: 2, name: "Kottu", stock: 40, sold: 8, pricePerUnit: 700, profitMargin: 30 }
 ];
 
+let groceryShopData = [
+    { id: 1, name: "Coca Cola 500ml", stock: 100, sold: 25, pricePerUnit: 150, profitMargin: 20 },
+    { id: 2, name: "Water Bottle 1L", stock: 150, sold: 40, pricePerUnit: 100, profitMargin: 15 }
+];
+
+
 let kitchenData = [
-    { id: 1, name: "Rice", arrived: 50, arrivedUnit: "KG", used: 10, usedUnit: "KG" },
-    { id: 2, name: "Chicken", arrived: 20, arrivedUnit: "KG", used: 5, usedUnit: "KG" },
-    { id: 3, name: "Dhal", arrived: 10, arrivedUnit: "KG", used: 2, usedUnit: "KG" }
+    { id: 1, name: "Rice", arrived: 50, arrivedUnit: "KG", used: 10, usedUnit: "KG", pricePerUnit: 150 },
+    { id: 2, name: "Chicken", arrived: 20, arrivedUnit: "KG", used: 5, usedUnit: "KG", pricePerUnit: 800 },
+    { id: 3, name: "Dhal", arrived: 10, arrivedUnit: "KG", used: 2, usedUnit: "KG", pricePerUnit: 200 }
 ];
 
 let salaryData = [

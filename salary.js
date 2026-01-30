@@ -42,10 +42,18 @@ function renderSalary() {
                 formatCurrency(emp.dailySalary)
             }
                 </td>
-                <td class="center editable-cell">
+                <td class="center">
                     ${isEditing ?
                 `<input type="number" id="edit-days-${emp.id}" value="${emp.workedDays}" min="0" max="31" class="edit-input">` :
-                emp.workedDays
+                `<div class="days-control">
+                            <button class="btn-arrow" onclick="adjustDays(${emp.id}, -1)" title="Decrease days">
+                                <span>▼</span>
+                            </button>
+                            <span class="days-value" id="days-${emp.id}">${emp.workedDays}</span>
+                            <button class="btn-arrow" onclick="adjustDays(${emp.id}, 1)" title="Increase days">
+                                <span>▲</span>
+                            </button>
+                        </div>`
             }
                 </td>
                 <td class="currency total-salary"><strong>${formatCurrency(totalSalary)}</strong></td>
@@ -110,4 +118,84 @@ function saveSalary(empId) {
     setTimeout(() => {
         row.style.backgroundColor = '';
     }, 1000);
+}
+
+// Adjust worked days with +/- buttons
+function adjustDays(empId, change) {
+    const emp = salaryData.find(e => e.id === empId);
+    if (!emp) return;
+
+    // Update worked days with validation
+    const newDays = emp.workedDays + change;
+
+    // Ensure days don't go below 0 or above 31
+    if (newDays < 0 || newDays > 31) return;
+
+    emp.workedDays = newDays;
+
+    // Re-render to update display and totals
+    renderSalary();
+
+    // Visual feedback - highlight the row briefly
+    const row = document.getElementById(`row-${empId}`);
+    const daysValue = document.getElementById(`days-${empId}`);
+
+    // Animate the days value
+    daysValue.style.transform = 'scale(1.3)';
+    daysValue.style.color = change > 0 ? '#27ae60' : '#c0392b';
+
+    setTimeout(() => {
+        daysValue.style.transform = 'scale(1)';
+        daysValue.style.color = '';
+    }, 300);
+}
+
+// Open Add Employee Modal
+function openAddEmployeeModal() {
+    document.getElementById('addEmployeeModal').style.display = 'flex';
+    document.getElementById('emp-name').focus();
+}
+
+// Close Add Employee Modal
+function closeAddEmployeeModal() {
+    document.getElementById('addEmployeeModal').style.display = 'none';
+    document.getElementById('emp-name').value = '';
+    document.getElementById('emp-role').value = '';
+    document.getElementById('emp-daily-salary').value = '';
+}
+
+// Save New Employee
+function saveNewEmployee() {
+    const name = document.getElementById('emp-name').value.trim();
+    const role = document.getElementById('emp-role').value.trim();
+    const dailySalary = parseFloat(document.getElementById('emp-daily-salary').value) || 0;
+
+    if (!name) { alert('Please enter employee name'); return; }
+    if (!role) { alert('Please enter designation/role'); return; }
+    if (dailySalary <= 0) { alert('Please enter a valid daily salary'); return; }
+
+    // Generate new ID
+    const newId = salaryData.length > 0 ? Math.max(...salaryData.map(e => e.id)) + 1 : 1;
+
+    // Add new employee object
+    salaryData.push({
+        id: newId,
+        name: name,
+        role: role,
+        dailySalary: dailySalary,
+        workedDays: 0, // Default to 0 days
+        totalPaid: 0   // Default to 0 paid
+    });
+
+    closeAddEmployeeModal();
+    renderSalary();
+
+    // Smooth scroll to bottom to see new entry
+    setTimeout(() => {
+        const tableContainer = document.querySelector('#salary .table-container');
+        tableContainer.scrollTop = tableContainer.scrollHeight;
+    }, 100);
+
+    // Optional success message (if we had a toaster)
+    // alert('New employee added successfully!');
 }

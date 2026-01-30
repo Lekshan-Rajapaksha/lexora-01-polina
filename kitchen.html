@@ -1,17 +1,69 @@
 <div id="kitchen" class="section">
+    <div class="kitchen-header">
+        <h2>Kitchen Inventory Management</h2>
+        <button class="btn btn-add-kitchen" onclick="openAddKitchenModal()">
+            ➕ Add Ingredient
+        </button>
+    </div>
+
     <div class="table-container">
         <table>
             <thead>
                 <tr>
-                    <th>Ingredient</th>
-                    <th>Arrived Qty (kg/L)</th>
+                    <th>Ingredient Name</th>
+                    <th>Arrived Qty</th>
                     <th>Used Qty</th>
                     <th>Currently Available</th>
-                    <th>Action</th>
+                    <th>Full Price (LKR)</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="kitchen-table-body">
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Add/Edit Kitchen Ingredient Modal -->
+<div id="kitchenModal" class="modal">
+    <div class="modal-content">
+        <h3 id="kitchen-modal-title">Add New Ingredient</h3>
+        <div class="form-group">
+            <label>Ingredient Name *</label>
+            <input type="text" id="kitchen-modal-name" placeholder="e.g., Rice, Chicken, Oil">
+        </div>
+        <div class="form-group">
+            <label>Arrived Quantity *</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="kitchen-modal-arrived" placeholder="0" style="flex: 2;">
+                <select id="kitchen-modal-arrived-unit" style="flex: 1;">
+                    <option value="g">g</option>
+                    <option value="KG" selected>KG</option>
+                    <option value="Liter">Liter</option>
+                    <option value="Pcs">Pcs</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Used Quantity</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="kitchen-modal-used" placeholder="0" style="flex: 2;" value="0">
+                <select id="kitchen-modal-used-unit" style="flex: 1;">
+                    <option value="g">g</option>
+                    <option value="KG" selected>KG</option>
+                    <option value="Liter">Liter</option>
+                    <option value="Pcs">Pcs</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Full Price (LKR) *</label>
+            <input type="number" id="kitchen-modal-price" placeholder="e.g., 6000" step="0.01">
+            <small style="color: #666;">Enter the total price for all arrived quantity</small>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" onclick="closeKitchenModal()">Cancel</button>
+            <button class="btn btn-save" onclick="saveKitchenItem()">Save</button>
+        </div>
     </div>
 </div>
