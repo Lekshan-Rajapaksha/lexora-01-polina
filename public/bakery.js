@@ -4,11 +4,27 @@ function renderBakery() {
     const tbody = document.getElementById('bakery-table-body');
     tbody.innerHTML = '';
     bakeryData.forEach(item => {
+        // Look up current name and price from Foods if foodId exists
+        let currentName = item.name; // Default to stored name
+        let currentPrice = item.price; // Default to stored price
+        let priceWarning = '';
+
+        if (item.foodId) {
+            const food = foodsData.find(f => f.id == item.foodId);
+            if (food) {
+                currentName = food.name; // Use current name from Foods
+                currentPrice = food.price; // Use current price from Foods
+            } else {
+                priceWarning = ' ⚠️'; // Food item no longer exists
+            }
+        }
+
         const balanced = item.baked - item.sold;
-        const profit = item.sold * item.price; // Simplified profit calculation
+        const profit = item.sold * currentPrice;
+
         tbody.innerHTML += `
             <tr>
-                <td><strong>${item.name}</strong></td>
+                <td><strong>${currentName}${priceWarning}</strong></td>
                 <td class="center">
                    <input type="number" 
                            value="${item.baked}" 
@@ -24,7 +40,7 @@ function renderBakery() {
                            min="0">
                 </td>
                 <td class="center" style="color:${balanced < 5 ? '#e74c3c' : '#27ae60'}; font-weight:bold;">${balanced}</td>
-                <td class="currency"><strong>${formatCurrency(item.price)}</strong></td>
+                <td class="currency"><strong>${formatCurrency(currentPrice)}</strong></td>
                 <td class="currency"><strong>${formatCurrency(profit)}</strong></td>
                 <td class="action-cell">
                     <button class="btn btn-delete-small" onclick="deleteDocument('bakery', '${item.id}')" title="Delete">
@@ -135,6 +151,7 @@ function saveBakeryItem() {
     const baked = parseInt(document.getElementById('bakery-baked-qty').value) || 0;
     const sold = parseInt(document.getElementById('bakery-sold-qty').value) || 0;
     const price = parseFloat(document.getElementById('bakery-unit-price').value) || 0;
+    const foodId = document.getElementById('bakery-food-select').value; // Store food reference
 
     if (!name) { alert('Please enter item name'); return; }
     if (baked < 0) { alert('Please enter valid baked quantity'); return; }
@@ -144,19 +161,16 @@ function saveBakeryItem() {
     if (id) {
         // Edit existing
         db.collection('bakery').doc(id).update({
-            name, baked, sold, price
+            name, baked, sold, price, foodId: foodId || null
         }).then(() => {
             showSuccessMessage('Bakery item updated! 🍞');
             closeBakeryModal();
         });
     } else {
-        // Add new - let Firestore generate ID or use timestamp
-        // Keeping numeric IDs might be tricky with concurrent users.
-        // Let's switch to string IDs (Firestore default) for robustness, 
-        // or just use timestamp as string ID.
+        // Add new
         const newDocRef = db.collection('bakery').doc();
         newDocRef.set({
-            name, baked, sold, price,
+            name, baked, sold, price, foodId: foodId || null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         }).then(() => {
             showSuccessMessage('New bakery item added! 🍞');
@@ -165,11 +179,3 @@ function saveBakeryItem() {
     }
 }
 
-// Global Delete Function (can be moved to utils later, but defined here for now or called directly)
-function deleteDocument(collection, id) {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-
-    db.collection(collection).doc(id).delete()
-        .then(() => showSuccessMessage('Item deleted.'))
-        .catch(err => console.error("Delete error:", err));
-}

@@ -21,7 +21,7 @@ function renderSalary() {
         totalPaid += emp.totalPaid;
         balanceDue += balance;
 
-        const isEditing = editingRowId === emp.id;
+        const isEditing = editingRowId == emp.id;
 
         tbody.innerHTML += `
             <tr id="row-${emp.id}" class="${isEditing ? 'editing-row' : ''}">
@@ -38,11 +38,11 @@ function renderSalary() {
                     ${isEditing ?
                 `<input type="number" id="edit-days-${emp.id}" value="${emp.workedDays}" min="0" max="31" class="edit-input">` :
                 `<div class="days-control">
-                            <button class="btn-arrow" onclick="adjustDays(${emp.id}, -1)" title="Decrease days">
+                            <button class="btn-arrow" onclick="adjustDays('${emp.id}', -1)" title="Decrease days">
                                 <span>▼</span>
                             </button>
                             <span class="days-value" id="days-${emp.id}">${emp.workedDays}</span>
-                            <button class="btn-arrow" onclick="adjustDays(${emp.id}, 1)" title="Increase days">
+                            <button class="btn-arrow" onclick="adjustDays('${emp.id}', 1)" title="Increase days">
                                 <span>▲</span>
                             </button>
                         </div>`
@@ -60,9 +60,9 @@ function renderSalary() {
                 </td>
                 <td class="action-cell">
                     ${isEditing ?
-                `<button class="btn btn-save-small" onclick="saveSalary(${emp.id})">💾 Save</button>
+                `<button class="btn btn-save-small" onclick="saveSalary('${emp.id}')">💾 Save</button>
                          <button class="btn btn-cancel-small" onclick="cancelEdit()">✖ Cancel</button>` :
-                `<button class="btn btn-edit-small" onclick="editSalary(${emp.id})">✏️ Edit</button>`
+                `<button class="btn btn-edit-small" onclick="editSalary('${emp.id}')">✏️ Edit</button>`
             }
                 </td>
             </tr>
@@ -77,6 +77,7 @@ function renderSalary() {
 }
 
 function editSalary(empId) {
+    console.log("editSalary called for:", empId);
     editingRowId = empId;
     renderSalary();
 }
@@ -87,8 +88,12 @@ function cancelEdit() {
 }
 
 function saveSalary(empId) {
-    const emp = salaryData.find(e => e.id === empId);
-    if (!emp) return;
+    console.log("saveSalary called for:", empId);
+    const emp = salaryData.find(e => e.id == empId);
+    if (!emp) {
+        console.error("Employee not found for saving:", empId);
+        return;
+    }
 
     // Get new values from inputs
     const newDailySalary = parseFloat(document.getElementById(`edit-daily-${empId}`).value) || 0;
@@ -110,8 +115,12 @@ function saveSalary(empId) {
 
 // Adjust worked days with +/- buttons
 function adjustDays(empId, change) {
-    const emp = salaryData.find(e => e.id === empId);
-    if (!emp) return;
+    console.log("adjustDays called for:", empId, "change:", change);
+    const emp = salaryData.find(e => e.id == empId);
+    if (!emp) {
+        console.error("Employee not found for ID:", empId);
+        return;
+    }
 
     // Update worked days with validation
     const newDays = emp.workedDays + change;
@@ -119,26 +128,26 @@ function adjustDays(empId, change) {
     // Ensure days don't go below 0 or above 31
     if (newDays < 0 || newDays > 31) return;
 
-    emp.workedDays = newDays;
+    // Update in Firestore
+    db.collection('salary').doc(String(empId)).update({
+        workedDays: newDays
+    }).catch(err => console.error("Error updating days:", err));
 
-    // Save Data
-    saveData(STORAGE_KEYS.SALARY, salaryData);
-
-    // Re-render to update display and totals
-    renderSalary();
+    // UI update will happen via onSnapshot
 
     // Visual feedback - highlight the row briefly
     const row = document.getElementById(`row-${empId}`);
     const daysValue = document.getElementById(`days-${empId}`);
+    if (daysValue) {
+        // Animate the days value
+        daysValue.style.transform = 'scale(1.3)';
+        daysValue.style.color = change > 0 ? '#27ae60' : '#c0392b';
 
-    // Animate the days value
-    daysValue.style.transform = 'scale(1.3)';
-    daysValue.style.color = change > 0 ? '#27ae60' : '#c0392b';
-
-    setTimeout(() => {
-        daysValue.style.transform = 'scale(1)';
-        daysValue.style.color = '';
-    }, 300);
+        setTimeout(() => {
+            daysValue.style.transform = 'scale(1)';
+            daysValue.style.color = '';
+        }, 300);
+    }
 }
 
 // Open Add Employee Modal

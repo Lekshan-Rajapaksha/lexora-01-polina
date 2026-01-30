@@ -42,4 +42,21 @@ function showSuccessMessage(message) {
 }
 
 
-// (LocalStorage functions removed as we migrated to Firestore)
+// Global Delete Document Function
+function deleteDocument(collection, id) {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+
+    db.collection(collection).doc(id).delete()
+        .then(() => {
+            showSuccessMessage('Item deleted.');
+            // Allow specific callbacks if needed, but listeners update UI
+            if (typeof closeModal === 'function') closeModal();
+            if (typeof closeBakeryModal === 'function') closeBakeryModal();
+            if (typeof closeAddShopItemModal === 'function') closeAddShopItemModal();
+            if (typeof closeNewIngredientModal === 'function') closeNewIngredientModal();
+        })
+        .catch(err => {
+            console.error("Delete error:", err);
+            alert("Failed to delete item: " + err.message);
+        });
+}

@@ -23,13 +23,27 @@ function renderFoodsShop() {
     tbody.innerHTML = '';
 
     foodsShopData.forEach((item, index) => {
-        // For food items, revenue is the sales revenue
-        const revenue = item.sold * item.pricePerUnit;
+        // Look up current name and price from Foods if foodId exists
+        let currentName = item.name; // Default to stored name
+        let currentPrice = item.pricePerUnit; // Default to stored price
+        let priceWarning = '';
+
+        if (item.foodId) {
+            const food = foodsData.find(f => f.id == item.foodId);
+            if (food) {
+                currentName = food.name; // Use current name from Foods
+                currentPrice = food.price; // Use current price from Foods
+            } else {
+                priceWarning = ' ⚠️'; // Food item no longer exists
+            }
+        }
+
+        const revenue = item.sold * currentPrice;
 
         tbody.innerHTML += `
             <tr>
                 <td class="center"><strong>${index + 1}</strong></td>
-                <td><strong>${item.name}</strong></td>
+                <td><strong>${currentName}${priceWarning}</strong></td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
                 <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
                 <td class="action-cell">
@@ -153,11 +167,11 @@ function closeAddShopItemModal() {
 
 // Save New Shop Item
 function saveShopItem() {
-    let name, stock, pricePerUnit;
+    let name, stock, pricePerUnit, foodId = null;
 
     if (currentShopCategory === 'foods') {
         // Get food item data
-        const foodId = document.getElementById('shop-food-select').value;
+        foodId = document.getElementById('shop-food-select').value;
         const food = foodsData.find(f => f.id == foodId);
 
         if (!food || !foodId) {
@@ -210,6 +224,7 @@ function saveShopItem() {
         stock,
         sold: 0,
         pricePerUnit,
+        foodId: foodId || null, // Store food reference for dynamic pricing
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
         closeAddShopItemModal();
@@ -218,11 +233,6 @@ function saveShopItem() {
         console.error("Error adding item:", err);
         alert("Failed to add item to database: " + err.message);
     });
-
-    // (Legacy array push removed)
-
-    // Show success message
-    showSuccessMessage(`${name} added successfully!`);
 }
 
 // Update Sold Count (Increment/Decrement)

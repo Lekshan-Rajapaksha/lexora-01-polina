@@ -14,6 +14,10 @@ function renderKitchen() {
         const arrivedUnit = item.arrivedUnit || 'KG';
         const usedUnit = item.usedUnit || 'KG';
 
+        // Payment tracking (default to paid for old data)
+        const totalPaid = parseFloat(item.totalPaid) || fullPrice;
+        const unpaidPrice = fullPrice - totalPaid;
+
         tbody.innerHTML += `
             <tr>
                 <td class="center"><strong>${index + 1}</strong></td>
@@ -31,7 +35,9 @@ function renderKitchen() {
                 <td class="center">
                     <strong class="available-qty">${available.toFixed(2)} ${arrivedUnit}</strong>
                 </td>
-                <td class="currency total-value"><strong>${formatCurrency(fullPrice)}</strong></td>
+                <td class="currency"><strong>${formatCurrency(fullPrice)}</strong></td>
+                <td class="currency" style="color: #27ae60;"><strong>${formatCurrency(totalPaid)}</strong></td>
+                <td class="currency" style="color: ${unpaidPrice > 0 ? '#e74c3c' : '#7f8c8d'};"><strong>${formatCurrency(unpaidPrice)}</strong></td>
                 <td class="action-cell">
                     <button class="btn btn-delete-small" onclick="deleteDocument('kitchen', '${item.id}')" title="Delete">
                         🗑️
@@ -62,13 +68,13 @@ function updateIngredientDropdown() {
 
 // Update info when selecting existing ingredient
 function updateExistingIngredientInfo() {
-    const selectId = parseInt(document.getElementById('kitchen-ingredient-select').value);
+    const selectId = document.getElementById('kitchen-ingredient-select').value;
     if (!selectId) {
         document.getElementById('kitchen-arrived-unit-existing').value = '';
         return;
     }
 
-    const item = kitchenData.find(i => i.id === selectId);
+    const item = kitchenData.find(i => i.id == selectId);
     if (item) {
         document.getElementById('kitchen-arrived-unit-existing').value = item.arrivedUnit;
     }
@@ -95,6 +101,7 @@ function saveNewIngredient() {
     const arrived = parseFloat(document.getElementById('kitchen-arrived-qty-new').value) || 0;
     const arrivedUnit = document.getElementById('kitchen-arrived-unit-new').value;
     const fullPrice = parseFloat(document.getElementById('kitchen-price-new').value) || 0;
+    const paymentStatus = document.querySelector('input[name="payment-status-new"]:checked').value;
 
     // Validation
     if (!name) {
@@ -122,6 +129,9 @@ function saveNewIngredient() {
     // Calculate price per unit
     const pricePerUnit = fullPrice / arrived;
 
+    // Calculate totalPaid based on payment status
+    const totalPaid = paymentStatus === 'paid' ? fullPrice : 0;
+
     // Add new item to Firestore
     db.collection('kitchen').add({
         name,
@@ -130,6 +140,7 @@ function saveNewIngredient() {
         used: 0,
         usedUnit: arrivedUnit,
         pricePerUnit,
+        totalPaid: totalPaid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
         closeNewIngredientModal();
@@ -139,9 +150,10 @@ function saveNewIngredient() {
 
 // Add stock to EXISTING ingredient
 function addExistingIngredientStock() {
-    const selectId = parseInt(document.getElementById('kitchen-ingredient-select').value);
+    const selectId = document.getElementById('kitchen-ingredient-select').value;
     const qtyToAdd = parseFloat(document.getElementById('kitchen-arrived-qty-existing').value) || 0;
     const fullPrice = parseFloat(document.getElementById('kitchen-price-existing').value) || 0;
+    const paymentStatus = document.querySelector('input[name="payment-status-existing"]:checked').value;
 
     // Validation
     if (!selectId) {
@@ -159,9 +171,14 @@ function addExistingIngredientStock() {
         return;
     }
 
+    console.log("Adding stock to ID:", selectId);
+
     // Find the item
-    const item = kitchenData.find(i => i.id === selectId);
-    if (!item) return;
+    const item = kitchenData.find(i => i.id == selectId);
+    if (!item) {
+        console.error("Item not found in kitchenData for ID:", selectId);
+        return;
+    }
 
     // Calculate new price per unit (weighted average)
     const oldTotal = item.arrived * item.pricePerUnit;
@@ -169,17 +186,24 @@ function addExistingIngredientStock() {
     const newArrived = item.arrived + qtyToAdd;
     const newPricePerUnit = newTotal / newArrived;
 
-    // Update item
+    // Calculate new totalPaid
+    const currentPaid = parseFloat(item.totalPaid) || (item.arrived * item.pricePerUnit); // Default old items as fully paid
+    const additionalPaid = paymentStatus === 'paid' ? fullPrice : 0;
+    const newTotalPaid = currentPaid + additionalPaid;
+
     // Update item in Firestore
     db.collection('kitchen').doc(String(selectId)).update({
         arrived: newArrived,
-        pricePerUnit: newPricePerUnit
+        pricePerUnit: newPricePerUnit,
+        totalPaid: newTotalPaid
     }).then(() => {
         // Clear form
         document.getElementById('kitchen-ingredient-select').value = '';
         document.getElementById('kitchen-arrived-qty-existing').value = '';
         document.getElementById('kitchen-price-existing').value = '';
         document.getElementById('kitchen-arrived-unit-existing').value = '';
+        // Reset payment status to paid (default)
+        document.querySelector('input[name="payment-status-existing"][value="paid"]').checked = true;
 
         showSuccessMessage(`Added ${qtyToAdd} ${item.arrivedUnit} to ${item.name}!`);
     });

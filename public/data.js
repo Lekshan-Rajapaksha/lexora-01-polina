@@ -50,6 +50,9 @@ db.collection('foods').onSnapshot((snapshot) => {
     // Also update dropdowns that depend on this
     if (typeof populateBakeryFoodDropdown === 'function') populateBakeryFoodDropdown();
     if (typeof populateFoodDropdown === 'function') populateFoodDropdown();
+    // Re-render sections that reference food items
+    if (typeof renderBakery === 'function') renderBakery();
+    if (typeof renderShop === 'function') renderShop();
 }, (error) => { console.error("Error syncing foods menu:", error); });
 
 console.log("Firestore listeners attached.");

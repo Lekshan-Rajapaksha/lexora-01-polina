@@ -21,7 +21,7 @@ function renderFoods() {
                 <ul class="ingredient-list">
                     ${ingredientsHtml}
                 </ul>
-                <button class="btn btn-edit" onclick="openEditModal(${food.id})">Edit Item</button>
+                <button class="btn btn-edit" onclick="openEditModal('${food.id}')">Edit Item</button>
             </div>
         `;
     });
@@ -46,8 +46,15 @@ function openAddModal() {
 
 // Open modal for editing existing food
 function openEditModal(id) {
+    console.log("Opening edit modal for ID:", id);
     isAddMode = false;
-    const food = foodsData.find(f => f.id === id);
+    const food = foodsData.find(f => f.id == id);
+
+    if (!food) {
+        console.error("Food item not found for ID:", id);
+        return;
+    }
+
     currentEditingFoodId = id;
 
     document.getElementById('modal-title').textContent = 'Edit Food Item';
@@ -174,10 +181,7 @@ function saveFoodChanges() {
         return;
     }
 
-    if (ingredients.length === 0) {
-        alert('Please add at least one ingredient.');
-        return;
-    }
+    // Ingredients are now optional
 
     if (isAddMode) {
         // Add new food item to Firestore
@@ -192,13 +196,50 @@ function saveFoodChanges() {
         });
     } else {
         // Update existing food item in Firestore
+        const oldFood = foodsData.find(f => f.id == currentEditingFoodId);
+        const oldName = oldFood ? oldFood.name : name;
+
         db.collection('foods').doc(currentEditingFoodId).update({
             name,
             price: parseFloat(price),
             ingredients: ingredients
         }).then(() => {
+            // Update all bakery and shop items that reference this food
+            updateRelatedItems(currentEditingFoodId, oldName, name, parseFloat(price));
             showSuccessMessage('Food item updated! 🍽️');
             closeModal();
         });
     }
+}
+
+// Update bakery and shop items when a food item changes
+function updateRelatedItems(foodId, oldName, newName, newPrice) {
+    // Update bakery items
+    bakeryData.forEach(item => {
+        // Match by foodId (for new items) or by name (for old items)
+        if (item.foodId == foodId || item.name === oldName) {
+            db.collection('bakery').doc(item.id).update({
+                name: newName,
+                price: newPrice,
+                foodId: foodId // Add foodId to old items
+            }).catch(err => console.error("Error updating bakery item:", err));
+        }
+    });
+
+    // Update shop items
+    foodsShopData.forEach(item => {
+        // Match by foodId (for new items) or by name (for old items)
+        if (item.foodId == foodId || item.name === oldName) {
+            db.collection('foodsShop').doc(item.id).update({
+                name: newName,
+                pricePerUnit: newPrice,
+                foodId: foodId // Add foodId to old items
+            }).catch(err => console.error("Error updating shop item:", err));
+        }
+    });
+}
+// Delete food item from modal
+function deleteCurrentFood() {
+    if (!currentEditingFoodId) return;
+    deleteDocument('foods', currentEditingFoodId);
 }
