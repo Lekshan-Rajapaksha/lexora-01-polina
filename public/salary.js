@@ -1,13 +1,5 @@
 // --- SALARY SECTION (Daily Wage System) ---
 
-// Currency Formatter
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-LK', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(amount);
-}
-
 // Track which row is being edited
 let editingRowId = null;
 
@@ -104,20 +96,16 @@ function saveSalary(empId) {
     const newTotalPaid = parseFloat(document.getElementById(`edit-paid-${empId}`).value) || 0;
 
     // Update the data
-    emp.dailySalary = newDailySalary;
-    emp.workedDays = newWorkedDays;
-    emp.totalPaid = newTotalPaid;
-
-    // Exit edit mode and re-render
-    editingRowId = null;
-    renderSalary();
-
-    // Show success feedback (optional)
-    const row = document.getElementById(`row-${empId}`);
-    row.style.backgroundColor = '#d4edda';
-    setTimeout(() => {
-        row.style.backgroundColor = '';
-    }, 1000);
+    // Update the data in Firestore
+    db.collection('salary').doc(String(empId)).update({
+        dailySalary: newDailySalary,
+        workedDays: newWorkedDays,
+        totalPaid: newTotalPaid
+    }).then(() => {
+        editingRowId = null; // Exit edit mode
+        // render handled by listener
+        showSuccessMessage('Salary details updated!');
+    });
 }
 
 // Adjust worked days with +/- buttons
@@ -132,6 +120,9 @@ function adjustDays(empId, change) {
     if (newDays < 0 || newDays > 31) return;
 
     emp.workedDays = newDays;
+
+    // Save Data
+    saveData(STORAGE_KEYS.SALARY, salaryData);
 
     // Re-render to update display and totals
     renderSalary();
@@ -174,28 +165,25 @@ function saveNewEmployee() {
     if (!role) { alert('Please enter designation/role'); return; }
     if (dailySalary <= 0) { alert('Please enter a valid daily salary'); return; }
 
-    // Generate new ID
-    const newId = salaryData.length > 0 ? Math.max(...salaryData.map(e => e.id)) + 1 : 1;
-
-    // Add new employee object
-    salaryData.push({
-        id: newId,
+    // Add new employee object to Firestore
+    db.collection('salary').add({
         name: name,
         role: role,
         dailySalary: dailySalary,
-        workedDays: 0, // Default to 0 days
-        totalPaid: 0   // Default to 0 paid
+        workedDays: 0,
+        totalPaid: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        closeAddEmployeeModal();
+        showSuccessMessage('New employee added successfully!');
+
+        // Smooth scroll to bottom to see new entry
+        setTimeout(() => {
+            const tableContainer = document.querySelector('#salary .table-container');
+            if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
+        }, 500);
+    }).catch((error) => {
+        console.error("Error adding employee: ", error);
+        alert("Failed to add employee: " + error.message);
     });
-
-    closeAddEmployeeModal();
-    renderSalary();
-
-    // Smooth scroll to bottom to see new entry
-    setTimeout(() => {
-        const tableContainer = document.querySelector('#salary .table-container');
-        tableContainer.scrollTop = tableContainer.scrollHeight;
-    }, 100);
-
-    // Optional success message (if we had a toaster)
-    // alert('New employee added successfully!');
 }

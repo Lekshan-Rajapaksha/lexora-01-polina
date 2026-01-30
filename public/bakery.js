@@ -10,22 +10,24 @@ function renderBakery() {
             <tr>
                 <td><strong>${item.name}</strong></td>
                 <td class="center">
-                    <input type="number" value="${item.baked}" 
+                   <input type="number" 
+                           value="${item.baked}" 
                            class="inline-qty-input" 
-                           onchange="updateBakeryCount(${item.id}, 'baked', this.value)" 
+                           onchange="updateBakeryDocument(this, '${item.id}', 'baked', ${item.sold})" 
                            min="0">
                 </td>
                 <td class="center">
-                    <input type="number" value="${item.sold}" 
+                    <input type="number" 
+                           value="${item.sold}" 
                            class="inline-qty-input" 
-                           onchange="updateBakeryCount(${item.id}, 'sold', this.value)" 
+                           onchange="updateBakeryDocument(this, '${item.id}', 'sold', ${item.baked})" 
                            min="0">
                 </td>
                 <td class="center" style="color:${balanced < 5 ? '#e74c3c' : '#27ae60'}; font-weight:bold;">${balanced}</td>
                 <td class="currency"><strong>${formatCurrency(item.price)}</strong></td>
                 <td class="currency"><strong>${formatCurrency(profit)}</strong></td>
                 <td class="action-cell">
-                    <button class="btn btn-delete-small" onclick="deleteBakeryItem(${item.id})" title="Delete">
+                    <button class="btn btn-delete-small" onclick="deleteDocument('bakery', '${item.id}')" title="Delete">
                         🗑️
                     </button>
                 </td>
@@ -51,7 +53,7 @@ function populateBakeryFoodDropdown() {
 
 // Auto-fill price and name when food is selected
 function autoFillBakeryPrice() {
-    const selectId = parseInt(document.getElementById('bakery-food-select').value);
+    const selectId = document.getElementById('bakery-food-select').value;
     const priceInput = document.getElementById('bakery-unit-price');
     const nameInput = document.getElementById('bakery-item-name');
 
@@ -60,45 +62,51 @@ function autoFillBakeryPrice() {
         return;
     }
 
-    const food = foodsData.find(f => f.id === selectId);
+    const food = foodsData.find(f => f.id == selectId);
     if (food) {
         priceInput.value = food.price;
         nameInput.value = food.name;
     }
 }
 
-// Update Bakery Counts (Inline)
-function updateBakeryCount(id, field, value) {
-    const item = bakeryData.find(i => i.id === id);
-    if (!item) return;
 
-    const newValue = parseInt(value) || 0;
+// Update Bakery Document (Inline)
+function updateBakeryDocument(input, id, field, constraintValue) {
+    const newValue = parseInt(input.value) || 0;
 
     if (newValue < 0) {
         alert('Quantity cannot be negative');
-        renderBakery(); // Reset input
+        input.value = bakeryData.find(i => i.id === id)[field]; // Reset
         return;
     }
 
-    if (field === 'sold' && newValue > item.baked) {
+    if (field === 'sold' && newValue > constraintValue) {
         alert('Sold quantity cannot be greater than baked quantity!');
-        renderBakery(); // Reset input
+        input.value = bakeryData.find(i => i.id === id)[field]; // Reset
         return;
     }
 
-    item[field] = newValue;
-
-    // If we changed baked, re-validate sold just in case
-    if (field === 'baked' && item.sold > item.baked) {
-        // Option: reset sold or alert? 
-        // Let's just alert for now or leave it inconsistent until they fix it, 
-        // but re-rendering profit/balance relies on it.
-        // Let's force consistency? Or just visually show it? 
-        // The table renders balance. 
+    // Validate constraint if updating baked
+    if (field === 'baked') {
+        const currentItem = bakeryData.find(i => i.id === id);
+        if (currentItem.sold > newValue) {
+            // For now, let's just warn or block?
+            // Let's allow but maybe warn. Actually standard logic:
+            // If baked < sold, it's invalid.
+            // Ideally we update sold to match baked if baked < sold?
+            // Let's just update for now.
+        }
     }
 
-    renderBakery();
-    // showSuccessMessage('Updated! 🍞'); // Optional, might be annoying on every change
+    db.collection('bakery').doc(id).update({
+        [field]: newValue
+    }).then(() => {
+        // success - do nothing, listener updates UI
+        console.log("Updated", field);
+    }).catch(err => {
+        console.error("Error updating:", err);
+        alert("Failed to update database");
+    });
 }
 
 // Open Add Bakery Modal
@@ -135,30 +143,33 @@ function saveBakeryItem() {
 
     if (id) {
         // Edit existing
-        const index = bakeryData.findIndex(i => i.id == id);
-        if (index !== -1) {
-            bakeryData[index] = { ...bakeryData[index], name, baked, sold, price };
+        db.collection('bakery').doc(id).update({
+            name, baked, sold, price
+        }).then(() => {
             showSuccessMessage('Bakery item updated! 🍞');
-        }
+            closeBakeryModal();
+        });
     } else {
-        // Add new
-        const newId = bakeryData.length > 0 ? Math.max(...bakeryData.map(i => i.id)) + 1 : 1;
-        bakeryData.push({ id: newId, name, baked, sold, price });
-        showSuccessMessage('New bakery item added! 🍞');
+        // Add new - let Firestore generate ID or use timestamp
+        // Keeping numeric IDs might be tricky with concurrent users.
+        // Let's switch to string IDs (Firestore default) for robustness, 
+        // or just use timestamp as string ID.
+        const newDocRef = db.collection('bakery').doc();
+        newDocRef.set({
+            name, baked, sold, price,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            showSuccessMessage('New bakery item added! 🍞');
+            closeBakeryModal();
+        });
     }
-
-    closeBakeryModal();
-    renderBakery();
 }
 
-// Delete Bakery Item
-function deleteBakeryItem(id) {
-    if (!confirm('Are you sure you want to delete this bakery item?')) return;
+// Global Delete Function (can be moved to utils later, but defined here for now or called directly)
+function deleteDocument(collection, id) {
+    if (!confirm('Are you sure you want to delete this item?')) return;
 
-    const index = bakeryData.findIndex(i => i.id === id);
-    if (index !== -1) {
-        bakeryData.splice(index, 1);
-        renderBakery();
-        showSuccessMessage('Item deleted.');
-    }
+    db.collection(collection).doc(id).delete()
+        .then(() => showSuccessMessage('Item deleted.'))
+        .catch(err => console.error("Delete error:", err));
 }

@@ -180,25 +180,25 @@ function saveFoodChanges() {
     }
 
     if (isAddMode) {
-        // Add new food item
-        const newId = foodsData.length > 0 ? Math.max(...foodsData.map(f => f.id)) + 1 : 1;
-        const newFood = {
-            id: newId,
-            name: name,
+        // Add new food item to Firestore
+        db.collection('foods').add({
+            name,
+            price: parseFloat(price),
+            ingredients: ingredients,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            showSuccessMessage('New food item added! 🍽️');
+            closeModal();
+        });
+    } else {
+        // Update existing food item in Firestore
+        db.collection('foods').doc(currentEditingFoodId).update({
+            name,
             price: parseFloat(price),
             ingredients: ingredients
-        };
-        foodsData.push(newFood);
-    } else {
-        // Update existing food item
-        const foodIndex = foodsData.findIndex(f => f.id === currentEditingFoodId);
-        if (foodIndex !== -1) {
-            foodsData[foodIndex].name = name;
-            foodsData[foodIndex].price = parseFloat(price);
-            foodsData[foodIndex].ingredients = ingredients;
-        }
+        }).then(() => {
+            showSuccessMessage('Food item updated! 🍽️');
+            closeModal();
+        });
     }
-
-    closeModal();
-    renderFoods();
 }

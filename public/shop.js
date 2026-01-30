@@ -3,13 +3,6 @@
 let currentShopTab = 'foods'; // Track current tab
 let currentShopCategory = ''; // Track which category modal is for
 
-// Currency Formatter
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-LK', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(amount);
-}
 
 // Switch between tabs
 function switchShopTab(tab) {
@@ -40,13 +33,13 @@ function renderFoodsShop() {
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
                 <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
                 <td class="action-cell">
-                    <button class="btn-sold-decrement" onclick="decrementSold('foods', ${item.id})" title="Sold -1">
+                    <button class="btn-sold-decrement" onclick="updateShopSold('foodsShop', '${item.id}', -1)" title="Sold -1">
                         ➖
                     </button>
-                    <button class="btn-sold-increment" onclick="incrementSold('foods', ${item.id})" title="Sold +1">
+                    <button class="btn-sold-increment" onclick="updateShopSold('foodsShop', '${item.id}', 1)" title="Sold +1">
                         ➕
                     </button>
-                    <button class="btn btn-delete-small" onclick="deleteShopItem('foods', ${item.id})" title="Delete">
+                    <button class="btn btn-delete-small" onclick="deleteDocument('foodsShop', '${item.id}')" title="Delete">
                         🗑️
                     </button>
                 </td>
@@ -62,7 +55,7 @@ function renderGroceryShop() {
 
     groceryShopData.forEach((item, index) => {
         const remaining = item.stock - item.sold;
-        const profit = item.sold * (item.pricePerUnit * (item.profitMargin / 100));
+        const revenue = item.sold * item.pricePerUnit;
 
         tbody.innerHTML += `
             <tr>
@@ -71,15 +64,15 @@ function renderGroceryShop() {
                 <td class="center"><span class="stock-badge">${item.stock}</span></td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
                 <td class="center"><strong class="remaining-qty">${remaining}</strong></td>
-                <td class="currency"><strong>${formatCurrency(profit)}</strong></td>
+                <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
                 <td class="action-cell">
-                    <button class="btn-sold-decrement" onclick="decrementSold('grocery', ${item.id})" title="Sold -1">
+                    <button class="btn-sold-decrement" onclick="updateShopSold('groceryShop', '${item.id}', -1)" title="Sold -1">
                         ➖
                     </button>
-                    <button class="btn-sold-increment" onclick="incrementSold('grocery', ${item.id})" title="Sold +1">
+                    <button class="btn-sold-increment" onclick="updateShopSold('groceryShop', '${item.id}', 1)" title="Sold +1">
                         ➕
                     </button>
-                    <button class="btn btn-delete-small" onclick="deleteShopItem('grocery', ${item.id})" title="Delete">
+                    <button class="btn btn-delete-small" onclick="deleteDocument('groceryShop', '${item.id}')" title="Delete">
                         🗑️
                     </button>
                 </td>
@@ -111,7 +104,7 @@ function populateFoodDropdown() {
 
 // Auto-fill food price when selected
 function autoFillFoodPrice() {
-    const selectId = parseInt(document.getElementById('shop-food-select').value);
+    const selectId = document.getElementById('shop-food-select').value;
     const priceInput = document.getElementById('shop-food-price');
 
     if (!selectId) {
@@ -119,7 +112,7 @@ function autoFillFoodPrice() {
         return;
     }
 
-    const food = foodsData.find(f => f.id === selectId);
+    const food = foodsData.find(f => f.id == selectId);
     if (food) {
         priceInput.value = food.price;
     }
@@ -160,12 +153,12 @@ function closeAddShopItemModal() {
 
 // Save New Shop Item
 function saveShopItem() {
-    let name, stock, pricePerUnit, profitMargin;
+    let name, stock, pricePerUnit;
 
     if (currentShopCategory === 'foods') {
         // Get food item data
-        const foodId = parseInt(document.getElementById('shop-food-select').value);
-        const food = foodsData.find(f => f.id === foodId);
+        const foodId = document.getElementById('shop-food-select').value;
+        const food = foodsData.find(f => f.id == foodId);
 
         if (!food || !foodId) {
             alert('Please select a food item');
@@ -181,7 +174,6 @@ function saveShopItem() {
         name = document.getElementById('shop-grocery-name').value.trim();
         stock = parseInt(document.getElementById('shop-grocery-stock').value) || 0;
         pricePerUnit = parseFloat(document.getElementById('shop-grocery-price').value) || 0;
-        profitMargin = parseFloat(document.getElementById('shop-grocery-margin').value) || 20;
 
         if (!name) {
             alert('Please enter product name');
@@ -210,92 +202,47 @@ function saveShopItem() {
         return;
     }
 
-    // Generate new ID
-    const newId = dataArray.length > 0 ? Math.max(...dataArray.map(i => i.id)) + 1 : 1;
+    // Add new item to Firestore
+    const collectionName = currentShopCategory === 'foods' ? 'foodsShop' : 'groceryShop';
 
-    // Add new item
-    dataArray.push({
-        id: newId,
-        name: name,
-        stock: stock,
+    db.collection(collectionName).add({
+        name,
+        stock,
         sold: 0,
-        pricePerUnit: pricePerUnit,
-        profitMargin: profitMargin
+        pricePerUnit,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        closeAddShopItemModal();
+        showSuccessMessage(`${name} added successfully!`);
+    }).catch(err => {
+        console.error("Error adding item:", err);
+        alert("Failed to add item to database: " + err.message);
     });
 
-    // Close modal and re-render
-    closeAddShopItemModal();
-    renderShop();
+    // (Legacy array push removed)
 
     // Show success message
     showSuccessMessage(`${name} added successfully!`);
 }
 
-// Increment Sold Count
-function incrementSold(category, itemId) {
-    const dataArray = category === 'foods' ? foodsShopData : groceryShopData;
-    const item = dataArray.find(i => i.id === itemId);
-
+// Update Sold Count (Increment/Decrement)
+function updateShopSold(collection, id, change) {
+    const dataArray = collection === 'foodsShop' ? foodsShopData : groceryShopData;
+    const item = dataArray.find(i => i.id === id);
     if (!item) return;
 
-    // For grocery items, check stock availability
-    // For food items, allow unlimited sales (stock starts at 0)
-    if (category === 'grocery' && item.sold >= item.stock) {
+    // Check constraints
+    if (collection === 'groceryShop' && change > 0 && item.sold >= item.stock) {
         alert('No stock remaining!');
         return;
     }
-
-    // Increment sold count
-    item.sold++;
-
-    // Re-render
-    renderShop();
-}
-
-// Delete Shop Item
-function deleteShopItem(category, itemId) {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-
-    if (category === 'foods') {
-        const index = foodsShopData.findIndex(i => i.id === itemId);
-        if (index !== -1) {
-            foodsShopData.splice(index, 1);
-        }
-    } else {
-        const index = groceryShopData.findIndex(i => i.id === itemId);
-        if (index !== -1) {
-            groceryShopData.splice(index, 1);
-        }
+    if (change < 0 && item.sold <= 0) {
+        return; // Cannot go below 0
     }
 
-    renderShop();
+    // Update in Firestore
+    db.collection(collection).doc(id).update({
+        sold: firebase.firestore.FieldValue.increment(change)
+    }).catch(err => console.error("Error updating sold count:", err));
 }
 
-// Show Success Message
-function showSuccessMessage(message) {
-    // Create message element
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'success-message';
-    msgDiv.textContent = message;
-    msgDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-        color: white;
-        padding: 16px 24px;
-        border-radius: 10px;
-        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
-        z-index: 10000;
-        font-weight: 700;
-        animation: slideInRight 0.3s ease-out;
-    `;
-
-    document.body.appendChild(msgDiv);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        msgDiv.style.animation = 'slideOutRight 0.3s ease-out';
-        setTimeout(() => msgDiv.remove(), 300);
-    }, 3000);
-}
