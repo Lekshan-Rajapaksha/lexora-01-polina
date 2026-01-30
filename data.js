@@ -18,24 +18,27 @@ let kitchenData = [
 ];
 
 let salaryData = [
-    { id: 1, name: "Kamal Perera", role: "Chef", base: 45000, ot: 5 },
-    { id: 2, name: "Nimal Silva", role: "Waiter", base: 30000, ot: 10 }
+    { id: 1, name: "Kamal Perera", role: "Head Chef", dailySalary: 3000, workedDays: 22, totalPaid: 50000 },
+    { id: 2, name: "Nimal Silva", role: "Waiter", dailySalary: 1800, workedDays: 25, totalPaid: 40000 },
+    { id: 3, name: "Saman Fernando", role: "Sous Chef", dailySalary: 2500, workedDays: 20, totalPaid: 50000 },
+    { id: 4, name: "Chamari Wickrama", role: "Cashier", dailySalary: 2000, workedDays: 24, totalPaid: 30000 },
+    { id: 5, name: "Ruwan Kumara", role: "Kitchen Helper", dailySalary: 1500, workedDays: 26, totalPaid: 35000 }
 ];
 
 let foodsData = [
-    { 
-        id: 1, 
-        name: "Fried Rice (Chicken)", 
-        price: 650, 
+    {
+        id: 1,
+        name: "Fried Rice (Chicken)",
+        price: 650,
         ingredients: [
             { category: "Base", name: "Rice", qty: "300g" },
             { category: "Meat", name: "Chicken", qty: "100g" }
         ]
     },
-    { 
-        id: 2, 
-        name: "Kottu (Cheese)", 
-        price: 800, 
+    {
+        id: 2,
+        name: "Kottu (Cheese)",
+        price: 800,
         ingredients: [
             { category: "Base", name: "Roti", qty: "2 pcs" },
             { category: "Dairy", name: "Cheese", qty: "50g" }

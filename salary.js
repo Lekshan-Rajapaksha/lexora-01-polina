@@ -1,18 +1,113 @@
-// --- SALARY SECTION ---
+// --- SALARY SECTION (Daily Wage System) ---
+
+// Currency Formatter
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-LK', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount);
+}
+
+// Track which row is being edited
+let editingRowId = null;
 
 function renderSalary() {
     const tbody = document.getElementById('salary-table-body');
     tbody.innerHTML = '';
-    salaryData.forEach(emp => {
-        const total = emp.base + (emp.ot * 500); // Assuming 500 LKR per OT hour
+
+    let totalEmployees = salaryData.length;
+    let totalEarned = 0;
+    let totalPaid = 0;
+    let balanceDue = 0;
+
+    salaryData.forEach((emp) => {
+        const totalSalary = emp.dailySalary * emp.workedDays;
+        const balance = totalSalary - emp.totalPaid;
+
+        // Accumulate totals
+        totalEarned += totalSalary;
+        totalPaid += emp.totalPaid;
+        balanceDue += balance;
+
+        const isEditing = editingRowId === emp.id;
+
         tbody.innerHTML += `
-            <tr>
+            <tr id="row-${emp.id}" class="${isEditing ? 'editing-row' : ''}">
+                <td><strong>EMP-${String(emp.id).padStart(3, '0')}</strong></td>
                 <td>${emp.name}</td>
-                <td>${emp.role}</td>
-                <td>${emp.base}</td>
-                <td>${emp.ot}</td>
-                <td><b>${total}</b></td>
+                <td><span class="role-badge">${emp.role}</span></td>
+                <td class="currency editable-cell">
+                    ${isEditing ?
+                `<input type="number" id="edit-daily-${emp.id}" value="${emp.dailySalary}" min="0" step="100" class="edit-input">` :
+                formatCurrency(emp.dailySalary)
+            }
+                </td>
+                <td class="center editable-cell">
+                    ${isEditing ?
+                `<input type="number" id="edit-days-${emp.id}" value="${emp.workedDays}" min="0" max="31" class="edit-input">` :
+                emp.workedDays
+            }
+                </td>
+                <td class="currency total-salary"><strong>${formatCurrency(totalSalary)}</strong></td>
+                <td class="currency editable-cell">
+                    ${isEditing ?
+                `<input type="number" id="edit-paid-${emp.id}" value="${emp.totalPaid}" min="0" step="100" class="edit-input">` :
+                formatCurrency(emp.totalPaid)
+            }
+                </td>
+                <td class="currency ${balance > 0 ? 'balance-due' : 'balance-clear'}">
+                    <strong>${formatCurrency(balance)}</strong>
+                </td>
+                <td class="action-cell">
+                    ${isEditing ?
+                `<button class="btn btn-save-small" onclick="saveSalary(${emp.id})">💾 Save</button>
+                         <button class="btn btn-cancel-small" onclick="cancelEdit()">✖ Cancel</button>` :
+                `<button class="btn btn-edit-small" onclick="editSalary(${emp.id})">✏️ Edit</button>`
+            }
+                </td>
             </tr>
         `;
     });
+
+    // Update Summary Cards
+    document.getElementById('total-employees').textContent = totalEmployees;
+    document.getElementById('total-earned').textContent = 'LKR ' + formatCurrency(totalEarned);
+    document.getElementById('total-paid').textContent = 'LKR ' + formatCurrency(totalPaid);
+    document.getElementById('balance-due').textContent = 'LKR ' + formatCurrency(balanceDue);
+}
+
+function editSalary(empId) {
+    editingRowId = empId;
+    renderSalary();
+}
+
+function cancelEdit() {
+    editingRowId = null;
+    renderSalary();
+}
+
+function saveSalary(empId) {
+    const emp = salaryData.find(e => e.id === empId);
+    if (!emp) return;
+
+    // Get new values from inputs
+    const newDailySalary = parseFloat(document.getElementById(`edit-daily-${empId}`).value) || 0;
+    const newWorkedDays = parseFloat(document.getElementById(`edit-days-${empId}`).value) || 0;
+    const newTotalPaid = parseFloat(document.getElementById(`edit-paid-${empId}`).value) || 0;
+
+    // Update the data
+    emp.dailySalary = newDailySalary;
+    emp.workedDays = newWorkedDays;
+    emp.totalPaid = newTotalPaid;
+
+    // Exit edit mode and re-render
+    editingRowId = null;
+    renderSalary();
+
+    // Show success feedback (optional)
+    const row = document.getElementById(`row-${empId}`);
+    row.style.backgroundColor = '#d4edda';
+    setTimeout(() => {
+        row.style.backgroundColor = '';
+    }, 1000);
 }

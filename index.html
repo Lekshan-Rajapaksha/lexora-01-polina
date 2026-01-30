@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Polina Restaurant Walasmulla - Dashboard</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
     <div class="sidebar">
@@ -85,15 +87,41 @@
         </div>
 
         <div id="salary" class="section">
+            <div class="salary-header">
+                <h2>Employee Daily Wage Management</h2>
+                <div class="payroll-summary">
+                    <div class="summary-card">
+                        <span class="summary-label">Total Employees</span>
+                        <span class="summary-value" id="total-employees">0</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Total Earned</span>
+                        <span class="summary-value" id="total-earned">LKR 0</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Total Paid</span>
+                        <span class="summary-value" id="total-paid">LKR 0</span>
+                    </div>
+                    <div class="summary-card highlight">
+                        <span class="summary-label">Balance Due</span>
+                        <span class="summary-value" id="balance-due">LKR 0</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
+                            <th>Employee ID</th>
                             <th>Employee Name</th>
-                            <th>Role</th>
-                            <th>Base Salary</th>
-                            <th>OT Hours</th>
-                            <th>Total Salary</th>
+                            <th>Department/Role</th>
+                            <th>Daily Salary (LKR)</th>
+                            <th>Worked Days</th>
+                            <th>Total Salary (LKR)</th>
+                            <th>Total Paid (LKR)</th>
+                            <th>Balance (LKR)</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="salary-table-body">
@@ -135,4 +163,5 @@
     <script src="foods.js"></script>
     <script src="navigation.js"></script>
 </body>
+
 </html>
