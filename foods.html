@@ -1,0 +1,27 @@
+<div id="foods" class="section">
+    <div class="food-grid" id="food-grid">
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit Food Item</h3>
+        <div class="form-group">
+            <label>Food Name</label>
+            <input type="text" id="modal-food-name" disabled>
+        </div>
+        <div class="form-group">
+            <label>Price (LKR)</label>
+            <input type="number" id="modal-food-price">
+        </div>
+        <div class="form-group">
+            <label>Ingredients (JSON format for demo)</label>
+            <textarea id="modal-food-ingredients" rows="4" style="width:100%; border:1px solid #ccc;"></textarea>
+            <small>Format: [{"name":"Rice","qty":"200g"}, ...]</small>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-save" onclick="saveFoodChanges()">Save Changes</button>
+        </div>
+    </div>
+</div>
