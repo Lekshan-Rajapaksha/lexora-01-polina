@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polina Restaurant Walasmulla - Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #d35400; /* Burnt Orange for Restaurant vibe */
+            --secondary-color: #2c3e50; /* Dark Blue/Grey */
+            --bg-color: #f4f6f7;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --success-color: #27ae60;
+            --danger-color: #c0392b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 250px;
+            background-color: var(--secondary-color);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 40px;
+            font-size: 1.5rem;
+            text-align: center;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: #bdc3c7;
+            padding: 15px;
+            text-align: left;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.3s;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Main Content Styling */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .header {
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Cards for Food Section */
+        .food-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .food-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+        }
+
+        .food-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .food-price {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        .ingredient-list {
+            list-style: none;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .ingredient-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-edit { background-color: var(--secondary-color); color: white; width: 100%; }
+        .btn-save { background-color: var(--success-color); color: white; }
+        .btn-cancel { background-color: var(--danger-color); color: white; }
+
+        /* Tables Styling (Kitchen, Bakery, Shop, Salary) */
+        .table-container {
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        input[type="number"], input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        /* Modal Styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Polina Restaurant</h2>
+        <button class="nav-btn active" onclick="showSection('bakery')">Bakery</button>
+        <button class="nav-btn" onclick="showSection('shop')">Shop</button>
+        <button class="nav-btn" onclick="showSection('kitchen')">Kitchen</button>
+        <button class="nav-btn" onclick="showSection('foods')">Foods</button>
+        <button class="nav-btn" onclick="showSection('salary')">Salary</button>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1 id="page-title">Bakery Overview</h1>
+            <span>Walasmulla Branch</span>
+        </div>
+
+        <div id="bakery" class="section active">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Total Baked</th>
+                            <th>Sold</th>
+                            <th>Balanced Items</th>
+                            <th>Unit Price (LKR)</th>
+                            <th>Total Profit (LKR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bakery-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="shop" class="section">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Stock Count</th>
+                            <th>Sold Today</th>
+                            <th>Remaining</th>
+                            <th>Profit (LKR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shop-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="kitchen" class="section">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ingredient</th>
+                            <th>Arrived Qty (kg/L)</th>
+                            <th>Used Qty</th>
+                            <th>Currently Available</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kitchen-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="foods" class="section">
+            <div class="food-grid" id="food-grid">
+                </div>
+        </div>
+
+        <div id="salary" class="section">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Role</th>
+                            <th>Base Salary</th>
+                            <th>OT Hours</th>
+                            <th>Total Salary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salary-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Food Item</h3>
+            <div class="form-group">
+                <label>Food Name</label>
+                <input type="text" id="modal-food-name" disabled>
+            </div>
+            <div class="form-group">
+                <label>Price (LKR)</label>
+                <input type="number" id="modal-food-price">
+            </div>
+            <div class="form-group">
+                <label>Ingredients (JSON format for demo)</label>
+                <textarea id="modal-food-ingredients" rows="4" style="width:100%; border:1px solid #ccc;"></textarea>
+                <small>Format: [{"name":"Rice","qty":"200g"}, ...]</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-save" onclick="saveFoodChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA STORE (Mock Database) ---
+        
+        let bakeryData = [
+            { id: 1, name: "Fish Bun", baked: 100, sold: 80, price: 80 },
+            { id: 2, name: "Chicken Roll", baked: 50, sold: 45, price: 100 },
+            { id: 3, name: "Bread", baked: 40, sold: 40, price: 120 }
+        ];
+
+        let shopData = [
+            { id: 1, name: "Coca Cola 500ml", stock: 50, sold: 10, price: 150 },
+            { id: 2, name: "Water Bottle 1L", stock: 100, sold: 25, price: 100 }
+        ];
+
+        let kitchenData = [
+            { id: 1, name: "Rice", arrived: 50, used: 10 },
+            { id: 2, name: "Chicken", arrived: 20, used: 5 },
+            { id: 3, name: "Dhal", arrived: 10, used: 2 }
+        ];
+
+        let salaryData = [
+            { id: 1, name: "Kamal Perera", role: "Chef", base: 45000, ot: 5 },
+            { id: 2, name: "Nimal Silva", role: "Waiter", base: 30000, ot: 10 }
+        ];
+
+        let foodsData = [
+            { 
+                id: 1, 
+                name: "Fried Rice (Chicken)", 
+                price: 650, 
+                ingredients: [
+                    { category: "Base", name: "Rice", qty: "300g" },
+                    { category: "Meat", name: "Chicken", qty: "100g" }
+                ]
+            },
+            { 
+                id: 2, 
+                name: "Kottu (Cheese)", 
+                price: 800, 
+                ingredients: [
+                    { category: "Base", name: "Roti", qty: "2 pcs" },
+                    { category: "Dairy", name: "Cheese", qty: "50g" }
+                ]
+            }
+        ];
+
+        let currentEditingFoodId = null;
+
+        // --- RENDER FUNCTIONS ---
+
+        function renderBakery() {
+            const tbody = document.getElementById('bakery-table-body');
+            tbody.innerHTML = '';
+            bakeryData.forEach(item => {
+                const balanced = item.baked - item.sold;
+                const profit = item.sold * item.price; // Simplified profit calculation
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.baked}</td>
+                        <td>${item.sold}</td>
+                        <td style="color:${balanced < 5 ? 'red' : 'green'}">${balanced}</td>
+                        <td>${item.price}</td>
+                        <td>${profit}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderShop() {
+            const tbody = document.getElementById('shop-table-body');
+            tbody.innerHTML = '';
+            shopData.forEach(item => {
+                const remaining = item.stock - item.sold;
+                const profit = item.sold * (item.price * 0.2); // Assuming 20% margin
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.stock}</td>
+                        <td>${item.sold}</td>
+                        <td>${remaining}</td>
+                        <td>${profit.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderKitchen() {
+            const tbody = document.getElementById('kitchen-table-body');
+            tbody.innerHTML = '';
+            kitchenData.forEach((item, index) => {
+                const available = item.arrived - item.used;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td><input type="number" value="${item.arrived}" onchange="updateKitchen(${index}, 'arrived', this.value)"></td>
+                        <td>${item.used}</td>
+                        <td style="font-weight:bold;">${available}</td>
+                        <td><button class="btn btn-save" onclick="renderKitchen()">Update</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderSalary() {
+            const tbody = document.getElementById('salary-table-body');
+            tbody.innerHTML = '';
+            salaryData.forEach(emp => {
+                const total = emp.base + (emp.ot * 500); // Assuming 500 LKR per OT hour
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${emp.name}</td>
+                        <td>${emp.role}</td>
+                        <td>${emp.base}</td>
+                        <td>${emp.ot}</td>
+                        <td><b>${total}</b></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderFoods() {
+            const grid = document.getElementById('food-grid');
+            grid.innerHTML = '';
+            foodsData.forEach(food => {
+                let ingredientsHtml = '';
+                food.ingredients.forEach(ing => {
+                    ingredientsHtml += `<li><span>${ing.category}: ${ing.name}</span> <span>${ing.qty}</span></li>`;
+                });
+
+                grid.innerHTML += `
+                    <div class="food-card">
+                        <div class="food-header">
+                            <h3>${food.name}</h3>
+                            <span class="food-price">Rs. ${food.price}</span>
+                        </div>
+                        <ul class="ingredient-list">
+                            ${ingredientsHtml}
+                        </ul>
+                        <button class="btn btn-edit" onclick="openEditModal(${food.id})">Edit Item</button>
+                    </div>
+                `;
+            });
+        }
+
+        // --- LOGIC HANDLERS ---
+
+        function updateKitchen(index, field, value) {
+            kitchenData[index][field] = Number(value);
+            // Re-render handled by the button or auto-refresh if preferred
+        }
+
+        // Section Switching
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Highlight Button
+            // Finding button by onclick attribute value is tricky, simplifying by re-rendering UI logic mostly
+            // In a real app we'd bind IDs to buttons. Here we just loop buttons.
+            const buttons = document.querySelectorAll('.nav-btn');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(sectionId)) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update Header Title
+            document.getElementById('page-title').innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1) + " Overview";
+
+            // Trigger Render
+            if(sectionId === 'bakery') renderBakery();
+            if(sectionId === 'shop') renderShop();
+            if(sectionId === 'kitchen') renderKitchen();
+            if(sectionId === 'salary') renderSalary();
+            if(sectionId === 'foods') renderFoods();
+        }
+
+        // Modal Logic for Foods
+        function openEditModal(id) {
+            const food = foodsData.find(f => f.id === id);
+            currentEditingFoodId = id;
+            
+            document.getElementById('modal-food-name').value = food.name;
+            document.getElementById('modal-food-price').value = food.price;
+            document.getElementById('modal-food-ingredients').value = JSON.stringify(food.ingredients, null, 2);
+            
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function saveFoodChanges() {
+            const price = document.getElementById('modal-food-price').value;
+            const ingredientsRaw = document.getElementById('modal-food-ingredients').value;
+            
+            try {
+                const ingredients = JSON.parse(ingredientsRaw);
+                
+                // Update Data
+                const foodIndex = foodsData.findIndex(f => f.id === currentEditingFoodId);
+                foodsData[foodIndex].price = price;
+                foodsData[foodIndex].ingredients = ingredients;
+                
+                closeModal();
+                renderFoods();
+            } catch (e) {
+                alert("Invalid Ingredient JSON format. Please check syntax.");
+            }
+        }
+
+        // Initial Load
+        renderBakery();
+
+        // Close modal if clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
