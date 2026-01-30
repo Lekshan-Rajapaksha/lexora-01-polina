@@ -9,7 +9,7 @@ function renderFoods() {
     foodsData.forEach(food => {
         let ingredientsHtml = '';
         food.ingredients.forEach(ing => {
-            ingredientsHtml += `<li><span>${ing.category}: ${ing.name}</span> <span>${ing.qty}</span></li>`;
+            ingredientsHtml += `<li><span>${ing.name}</span> <span>${ing.qty}</span></li>`;
         });
 
         grid.innerHTML += `
@@ -70,14 +70,25 @@ function renderIngredientInputs(ingredients) {
     container.innerHTML = '';
 
     ingredients.forEach((ing, index) => {
-        addIngredientRow(ing.category, ing.name, ing.qty);
+        addIngredientRow(ing.name, ing.qty);
     });
 }
 
 // Add a new ingredient input row
-function addIngredientRow(category = '', name = '', qty = '') {
+function addIngredientRow(name = '', qty = '') {
     const container = document.getElementById('ingredients-container');
     const rowId = Date.now() + Math.random();
+
+    // Parse quantity to extract value and unit
+    let qtyValue = '';
+    let qtyUnit = 'g';
+    if (qty) {
+        const match = qty.match(/^([\d.]+)\s*(.*)$/);
+        if (match) {
+            qtyValue = match[1];
+            qtyUnit = match[2] || 'g';
+        }
+    }
 
     const rowDiv = document.createElement('div');
     rowDiv.className = 'ingredient-row';
@@ -91,14 +102,23 @@ function addIngredientRow(category = '', name = '', qty = '') {
         ingredientOptions += `<option value="${item.name}" ${selected}>${item.name}</option>`;
     });
 
+    // Unit options
+    const units = ['g', 'KG', 'Liter', 'Pcs'];
+    let unitOptions = '';
+    units.forEach(unit => {
+        const selected = unit === qtyUnit ? 'selected' : '';
+        unitOptions += `<option value="${unit}" ${selected}>${unit}</option>`;
+    });
+
     rowDiv.innerHTML = `
-        <input type="text" placeholder="Category (e.g., Base, Meat)" value="${category}" 
-               style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-        <select style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <select style="flex: 2; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
             ${ingredientOptions}
         </select>
-        <input type="text" placeholder="Quantity (e.g., 200g)" value="${qty}" 
+        <input type="number" placeholder="Qty" value="${qtyValue}" 
                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <select style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            ${unitOptions}
+        </select>
         <button type="button" onclick="removeIngredientRow('${rowId}')" 
                 style="background: #f56565; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;">
             ×
@@ -122,14 +142,15 @@ function collectIngredientData() {
     const ingredients = [];
 
     rows.forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const select = row.querySelector('select');
-        const category = inputs[0].value.trim();
-        const name = select.value.trim();
-        const qty = inputs[1].value.trim();
+        const selects = row.querySelectorAll('select');
+        const input = row.querySelector('input');
+        const name = selects[0].value.trim();
+        const qtyValue = input.value.trim();
+        const qtyUnit = selects[1].value.trim();
 
-        if (category && name && qty) {
-            ingredients.push({ category, name, qty });
+        if (name && qtyValue && qtyUnit) {
+            const qty = `${qtyValue}${qtyUnit}`;
+            ingredients.push({ name, qty });
         }
     });
 

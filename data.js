@@ -12,9 +12,9 @@ let shopData = [
 ];
 
 let kitchenData = [
-    { id: 1, name: "Rice", arrived: 50, used: 10 },
-    { id: 2, name: "Chicken", arrived: 20, used: 5 },
-    { id: 3, name: "Dhal", arrived: 10, used: 2 }
+    { id: 1, name: "Rice", arrived: 50, arrivedUnit: "KG", used: 10, usedUnit: "KG" },
+    { id: 2, name: "Chicken", arrived: 20, arrivedUnit: "KG", used: 5, usedUnit: "KG" },
+    { id: 3, name: "Dhal", arrived: 10, arrivedUnit: "KG", used: 2, usedUnit: "KG" }
 ];
 
 let salaryData = [
@@ -31,8 +31,8 @@ let foodsData = [
         name: "Fried Rice (Chicken)",
         price: 650,
         ingredients: [
-            { category: "Base", name: "Rice", qty: "300g" },
-            { category: "Meat", name: "Chicken", qty: "100g" }
+            { name: "Rice", qty: "300g" },
+            { name: "Chicken", qty: "100g" }
         ]
     },
     {
@@ -40,8 +40,8 @@ let foodsData = [
         name: "Kottu (Cheese)",
         price: 800,
         ingredients: [
-            { category: "Base", name: "Roti", qty: "2 pcs" },
-            { category: "Dairy", name: "Cheese", qty: "50g" }
+            { name: "Roti", qty: "2 pcs" },
+            { name: "Cheese", qty: "50g" }
         ]
     }
 ];
