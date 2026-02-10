@@ -1,4 +1,8 @@
 {
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": {
     "public": "public",
     "ignore": [
@@ -8,8 +12,16 @@
     ],
     "rewrites": [
       {
-        "source": "**",
+        "source": "/",
+        "destination": "/login.html"
+      },
+      {
+        "source": "/dashboard",
         "destination": "/index.html"
+      },
+      {
+        "source": "**",
+        "destination": "/login.html"
       }
     ]
   }

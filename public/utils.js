@@ -1,5 +1,13 @@
 // --- UTILITIES & STORAGE ---
 
+// Get local date string in YYYY-MM-DD format (Sri Lanka timezone)
+function getLocalDateString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Currency Formatter
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-LK', {
@@ -59,4 +67,57 @@ function deleteDocument(collection, id) {
             console.error("Delete error:", err);
             alert("Failed to delete item: " + err.message);
         });
+}
+
+// Helper: Convert units (e.g., g to KG)
+function convertUnit(value, fromUnit, toUnit) {
+    if (fromUnit === toUnit) return value;
+
+    // Normalize units to lowercase for comparison
+    const from = fromUnit.toLowerCase();
+    const to = toUnit.toLowerCase();
+
+    // Weight conversions
+    if ((from === 'g' || from === 'gram') && (to === 'kg' || to === 'kilogram')) {
+        return value / 1000;
+    }
+    if ((from === 'kg' || from === 'kilogram') && (to === 'g' || to === 'gram')) {
+        return value * 1000;
+    }
+
+    // Volume conversions (Simple 1:1000 assumption for ml/Liter similar to g/KG)
+    if ((from === 'ml') && (to === 'liter' || to === 'l')) {
+        return value / 1000;
+    }
+    if ((from === 'liter' || from === 'l') && (to === 'ml')) {
+        return value * 1000;
+    }
+
+    // Pcs (no conversion usually, unless packs)
+    if (from === 'pcs' || to === 'pcs') {
+        return value; // Assume 1:1 if matching, or just pass validation if mismatch
+    }
+
+    console.warn(`Unknown conversion: ${fromUnit} to ${toUnit}`);
+    return value; // Fallback
+}
+
+// --- TESTING HELPER ---
+function simulateYesterday() {
+    if (!confirm("🚧 TEST MODE: This will set the 'Last Reset Date' to YESTERDAY.\n\nOn the next reload, the system should trigger a Daily Reset.\n\nContinue?")) return;
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = getLocalDateString(yesterday);
+
+    Promise.all([
+        db.collection('system').doc('bakerySettings').set({ lastResetDate: yesterdayStr }, { merge: true }),
+        db.collection('system').doc('shopSettings').set({ lastResetDate: yesterdayStr }, { merge: true })
+    ]).then(() => {
+        alert(`✅ System date set to: ${yesterdayStr}\n\nNow RELOAD the page to see the Auto-Reset in action!`);
+        location.reload();
+    }).catch(err => {
+        console.error(err);
+        alert("Error setting date: " + err.message);
+    });
 }

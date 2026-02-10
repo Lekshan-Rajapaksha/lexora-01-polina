@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Data Migration Tool</title>
+    <style>
+        body { font-family: monospace; background: #222; color: #0f0; padding: 20px; }
+        .log { margin-bottom: 5px; }
+        .error { color: #f55; }
+        .success { color: #5f5; font-weight: bold; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0f0; color: #000; border: none; font-weight: bold; }
+        button:disabled { background: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>Firebase Data Migration Tool</h1>
+    <p>Copies data from <b>polinalk</b> (OLD) to <b>polinaresturant</b> (NEW).</p>
+    <button id="start-btn" onclick="startMigration()">🚀 Start Migration</button>
+    <div id="logs" style="margin-top: 20px; border-top: 1px solid #444; padding-top: 10px;"></div>
+
+    <!-- Load Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // --- CONFIGURATION ---
+        const oldConfig = {
+            apiKey: "AIzaSyCij_lx3soFwbSxAIa3QuwTpTsfNUt1JOc",
+            authDomain: "polinalk.firebaseapp.com",
+            projectId: "polinalk",
+            storageBucket: "polinalk.firebasestorage.app",
+            messagingSenderId: "730062617765",
+            appId: "1:730062617765:web:7c21d4b2b3b3b3b3b3b3b3"
+        };
+
+        const newConfig = {
+            apiKey: "AIzaSyCon896taIWlaY-6_bElPYQ5hIiWxhLhVY",
+            authDomain: "polinaresturant.firebaseapp.com",
+            projectId: "polinaresturant",
+            storageBucket: "polinaresturant.firebasestorage.app",
+            messagingSenderId: "515907915894",
+            appId: "1:515907915894:web:79ac25e65ae005f5000f57",
+            measurementId: "G-0LPWSR59JH"
+        };
+
+        // --- INITIALIZATION ---
+        // Initialize OLD app (Source)
+        const oldApp = firebase.initializeApp(oldConfig, "oldApp");
+        const oldDb = oldApp.firestore();
+
+        // Initialize NEW app (Destination)
+        const newApp = firebase.initializeApp(newConfig, "newApp");
+        const newDb = newApp.firestore();
+
+        const collectionsToMigrate = [
+            'bakery',
+            'foodsShop',
+            'groceryShop',
+            'kitchen',
+            'salary',
+            'foods',
+            'users'
+        ];
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('logs').appendChild(div);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        async function startMigration() {
+            const btn = document.getElementById('start-btn');
+            btn.disabled = true;
+            log("Starting migration...", "info");
+
+            for (const colName of collectionsToMigrate) {
+                try {
+                    log(`Reading collection: ${colName}...`, "info");
+                    
+                    // Get all docs from Source
+                    const snapshot = await oldDb.collection(colName).get();
+                    if (snapshot.empty) {
+                        log(`Collection ${colName} is empty. Skipping.`, "info");
+                        continue;
+                    }
+
+                    log(`Found ${snapshot.size} documents in ${colName}. Copying...`, "info");
+
+                    const batchSize = 500;
+                    let batch = newDb.batch();
+                    let count = 0;
+                    let totalCopied = 0;
+
+                    for (const doc of snapshot.docs) {
+                        const data = doc.data();
+                        const docRef = newDb.collection(colName).doc(doc.id);
+                        
+                        batch.set(docRef, data);
+                        count++;
+
+                        if (count >= batchSize) {
+                            await batch.commit();
+                            totalCopied += count;
+                            log(`Committed batch of ${count} to ${colName}...`, "info");
+                            batch = newDb.batch();
+                            count = 0;
+                        }
+                    }
+
+                    if (count > 0) {
+                        await batch.commit();
+                        totalCopied += count;
+                    }
+
+                    log(`Successfully copied ${totalCopied} documents to ${colName}.`, "success");
+
+                } catch (error) {
+                    log(`Error migrating ${colName}: ${error.message}`, "error");
+                    console.error(error);
+                }
+            }
+
+            log("Migration completed!", "success");
+            log("Please verify data in the main application.", "success");
+        }
+    </script>
+</body>
+</html>

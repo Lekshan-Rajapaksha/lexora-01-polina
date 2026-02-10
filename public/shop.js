@@ -1,7 +1,11 @@
 // --- SHOP SECTION ---
 
+
 let currentShopTab = 'foods'; // Track current tab
 let currentShopCategory = ''; // Track which category modal is for
+
+// Daily reset is handled by Client-Side Logic (via checkAndPerformShopReset)
+
 
 
 // Switch between tabs
@@ -39,19 +43,21 @@ function renderFoodsShop() {
         }
 
         const revenue = item.sold * currentPrice;
+        const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
             <tr>
                 <td class="center"><strong>${index + 1}</strong></td>
                 <td><strong>${currentName}${priceWarning}</strong></td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
+                <td class="center"><small style="color: #7f8c8d;">${lastSoldDate}</small></td>
                 <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
                 <td class="action-cell">
                     <button class="btn-sold-decrement" onclick="updateShopSold('foodsShop', '${item.id}', -1)" title="Sold -1">
-                        ➖
+                        -
                     </button>
                     <button class="btn-sold-increment" onclick="updateShopSold('foodsShop', '${item.id}', 1)" title="Sold +1">
-                        ➕
+                        +
                     </button>
                     <button class="btn btn-delete-small" onclick="deleteDocument('foodsShop', '${item.id}')" title="Delete">
                         🗑️
@@ -68,23 +74,50 @@ function renderGroceryShop() {
     tbody.innerHTML = '';
 
     groceryShopData.forEach((item, index) => {
-        const remaining = item.stock - item.sold;
+        // Calculate Actual Available from Kitchen
+        let actualAvailable = 'N/A';
+        let stockColor = '#7f8c8d'; // gray default
+
+        // 1. Try to find by explicit ID link
+        let kitchenItem = null;
+        if (item.kitchenId) {
+            kitchenItem = kitchenData.find(k => k.id === item.kitchenId);
+        }
+
+        // 2. Fallback: Try to find by Name Matching (if no ID link)
+        if (!kitchenItem) {
+            kitchenItem = kitchenData.find(k => k.name.trim().toLowerCase() === item.name.trim().toLowerCase() && k.category === 'grocery');
+        }
+
+        if (kitchenItem) {
+            const availableQty = parseFloat(kitchenItem.arrived) - parseFloat(kitchenItem.used);
+            const unit = kitchenItem.arrivedUnit || '';
+            actualAvailable = `${availableQty.toFixed(2)} ${unit}`;
+
+            if (availableQty <= 5) stockColor = '#e74c3c'; // Red low stock
+            else if (availableQty <= 20) stockColor = '#f39c12'; // Orange med stock
+            else stockColor = '#27ae60'; // Green ok
+        }
+
         const revenue = item.sold * item.pricePerUnit;
+        const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
             <tr>
                 <td class="center"><strong>${index + 1}</strong></td>
                 <td><strong>${item.name}</strong></td>
-                <td class="center"><span class="stock-badge">${item.stock}</span></td>
+                <td class="center" style="color: ${stockColor}; font-weight: bold;">
+                    ${actualAvailable}
+                </td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
-                <td class="center"><strong class="remaining-qty">${remaining}</strong></td>
+                <td class="center"><small style="color: #7f8c8d;">${lastSoldDate}</small></td>
                 <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
                 <td class="action-cell">
                     <button class="btn-sold-decrement" onclick="updateShopSold('groceryShop', '${item.id}', -1)" title="Sold -1">
-                        ➖
+                        -
                     </button>
                     <button class="btn-sold-increment" onclick="updateShopSold('groceryShop', '${item.id}', 1)" title="Sold +1">
-                        ➕
+                        +
                     </button>
                     <button class="btn btn-delete-small" onclick="deleteDocument('groceryShop', '${item.id}')" title="Delete">
                         🗑️
@@ -99,6 +132,136 @@ function renderGroceryShop() {
 function renderShop() {
     renderFoodsShop();
     renderGroceryShop();
+    checkAndPerformShopReset();
+}
+
+// --- AUTO-RESET LOGIC (Client-Side) ---
+
+let hasCheckedShopReset = false;
+
+async function checkAndPerformShopReset() {
+    // Only run if both data sets have loaded at least once (checked via length or reliance on render)
+    // Actually, renderShop is called whenever EITHER changes.
+    // We should only run this ONCE per session regardless.
+    if (hasCheckedShopReset) return;
+
+    // Wait a brief moment to ensure data might be loaded? 
+    // Actually, if data is empty, forEach does nothing, which is fine, but we might mistakenly 'reset' to today without processing items if data hasn't arrived.
+    // However, this function is called inside renderShop, which is called by onSnapshot.
+    // So data SHOULD be there.
+    // BUT we must confirm we have data before we declare "we checked today".
+    // If networks is slow, data might be empty array initially?
+    // Firestore onSnapshot usually returns empty or data immediately if cached, or acts async.
+    // Let's rely on the first successful render call.
+
+    hasCheckedShopReset = true;
+
+    try {
+        console.log("Checking daily reset status for Shop...");
+        const settingsDoc = await db.collection('system').doc('shopSettings').get();
+        const todayStr = getLocalDateString(); // YYYY-MM-DD in local timezone
+
+        let lastResetDate = null;
+        if (settingsDoc.exists) {
+            lastResetDate = settingsDoc.data().lastResetDate;
+        }
+
+        if (lastResetDate === todayStr) {
+            console.log("Shop is already reset for today.");
+            return;
+        }
+
+        // Calculate archive date (the day the data belongs to)
+        const archiveDate = lastResetDate ? new Date(lastResetDate) : new Date(todayStr);
+
+        console.log(`Performing Shop daily reset... Last: ${lastResetDate}, Today: ${todayStr}, Arching as: ${getLocalDateString(archiveDate)}`);
+        showSuccessMessage("Performing Shop Daily Reset... ⏳");
+
+        const batch = db.batch();
+        let operationCount = 0;
+        // const todayDate = new Date(); // REMOVED
+
+        // 1. Reset Foods Shop
+        foodsShopData.forEach(item => {
+            const itemRef = db.collection('foodsShop').doc(item.id);
+
+            if (item.sold > 0) {
+                const historyRef = db.collection('shopHistory').doc();
+                // Create a clean object for history
+                batch.set(historyRef, {
+                    itemId: item.id,
+                    name: item.name,
+                    sold: item.sold,
+                    price: item.pricePerUnit || 0,
+                    profit: (item.sold || 0) * (item.pricePerUnit || 0),
+                    category: 'foods',
+                    date: archiveDate, // Corrected date
+                    archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                batch.update(itemRef, {
+                    sold: 0,
+                    date: new Date() // Reset curr item date to NOW
+                });
+                operationCount++;
+            } else {
+                // Even items with 0 sales get date updated
+                batch.update(itemRef, {
+                    date: new Date()
+                });
+                operationCount++;
+            }
+        });
+
+        // 2. Reset Grocery Shop
+        groceryShopData.forEach(item => {
+            const itemRef = db.collection('groceryShop').doc(item.id);
+
+            if (item.sold > 0) {
+                const historyRef = db.collection('shopHistory').doc();
+                batch.set(historyRef, {
+                    itemId: item.id,
+                    name: item.name,
+                    stock: item.stock,
+                    sold: item.sold,
+                    price: item.pricePerUnit || 0,
+                    profit: (item.sold || 0) * (item.pricePerUnit || 0),
+                    category: 'grocery',
+                    date: archiveDate, // Corrected date
+                    archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                batch.update(itemRef, {
+                    sold: 0,
+                    date: new Date() // Reset curr item date to NOW
+                });
+                operationCount++;
+            } else {
+                // Even items with 0 sales get date updated
+                batch.update(itemRef, {
+                    date: new Date()
+                });
+                operationCount++;
+            }
+        });
+
+        // Update settings
+        const settingsRef = db.collection('system').doc('shopSettings');
+        batch.set(settingsRef, { lastResetDate: todayStr }, { merge: true });
+
+        if (operationCount > 0) {
+            await batch.commit();
+            console.log(`Shop Reset complete. Reset ${operationCount} items.`);
+            showSuccessMessage("Shop Reset Complete! 🛒");
+        } else {
+            await settingsRef.set({ lastResetDate: todayStr }, { merge: true });
+            console.log("No shop items needed resetting, date updated.");
+        }
+
+    } catch (e) {
+        console.error("Error in checkAndPerformShopReset:", e);
+        hasCheckedShopReset = false; // Allow retry if error
+    }
 }
 
 // Populate Food Dropdown from foodsData
@@ -142,12 +305,53 @@ function openAddShopItemModal(category) {
     document.getElementById('food-item-form').style.display = category === 'foods' ? 'block' : 'none';
     document.getElementById('grocery-item-form').style.display = category === 'grocery' ? 'block' : 'none';
 
-    // Populate food dropdown if it's foods tab
+    // Populate dropdowns
     if (category === 'foods') {
         populateFoodDropdown();
+    } else {
+        populateGroceryIngredientDropdown();
     }
 
     document.getElementById('addShopItemModal').style.display = 'flex';
+}
+
+// Populate Grocery Ingredient Dropdown
+function populateGroceryIngredientDropdown() {
+    const select = document.getElementById('shop-grocery-kitchen-select');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Manual Entry --</option>';
+
+    kitchenData.forEach(item => {
+        // Filter: Only show items categorized as 'Grocery'
+        if (item.category === 'grocery') {
+            const option = document.createElement('option');
+            option.value = item.id;
+            const available = parseFloat(item.arrived) - parseFloat(item.used);
+            option.textContent = `${item.name} (Avail: ${available.toFixed(2)} ${item.arrivedUnit})`;
+            select.appendChild(option);
+        }
+    });
+}
+
+// Auto-fill Grocery Form from selected Kitchen Ingredient
+function autoFillGroceryFromKitchen() {
+    const selectId = document.getElementById('shop-grocery-kitchen-select').value;
+    const nameInput = document.getElementById('shop-grocery-name');
+    const stockInput = document.getElementById('shop-grocery-stock');
+
+    if (!selectId) {
+        // Don't clear inputs, user might want to switch to manual
+        return;
+    }
+
+    const item = kitchenData.find(i => i.id == selectId);
+    if (item) {
+        nameInput.value = item.name;
+        // Auto-fill stock with available quantity
+        const available = parseFloat(item.arrived) - parseFloat(item.used);
+        stockInput.value = Math.floor(available); // Stock usually integers for units, but... let's do floor
+    }
 }
 
 // Close Add Item Modal
@@ -159,15 +363,15 @@ function closeAddShopItemModal() {
     document.getElementById('shop-food-price').value = '';
 
     // Clear grocery form
+    document.getElementById('shop-grocery-kitchen-select').value = '';
     document.getElementById('shop-grocery-name').value = '';
     document.getElementById('shop-grocery-stock').value = '';
     document.getElementById('shop-grocery-price').value = '';
-    document.getElementById('shop-grocery-margin').value = '20';
 }
 
 // Save New Shop Item
 function saveShopItem() {
-    let name, stock, pricePerUnit, foodId = null;
+    let name, stock, pricePerUnit, foodId = null, kitchenId = null;
 
     if (currentShopCategory === 'foods') {
         // Get food item data
@@ -185,6 +389,10 @@ function saveShopItem() {
         profitMargin = 0; // No profit margin for food items (full revenue tracked)
     } else {
         // Get grocery item data
+
+        // Check if kitchen ingredient selected
+        kitchenId = document.getElementById('shop-grocery-kitchen-select').value || null;
+
         name = document.getElementById('shop-grocery-name').value.trim();
         stock = parseInt(document.getElementById('shop-grocery-stock').value) || 0;
         pricePerUnit = parseFloat(document.getElementById('shop-grocery-price').value) || 0;
@@ -224,7 +432,10 @@ function saveShopItem() {
         stock,
         sold: 0,
         pricePerUnit,
+        pricePerUnit,
         foodId: foodId || null, // Store food reference for dynamic pricing
+        kitchenId: kitchenId || null, // Store kitchen reference for grocery deduction
+        date: new Date(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
         closeAddShopItemModal();
@@ -250,9 +461,30 @@ function updateShopSold(collection, id, change) {
         return; // Cannot go below 0
     }
 
-    // Update in Firestore
-    db.collection(collection).doc(id).update({
+    // Update in Firestore with timestamp
+    const updateData = {
         sold: firebase.firestore.FieldValue.increment(change)
-    }).catch(err => console.error("Error updating sold count:", err));
+    };
+
+    // Add timestamp when incrementing (selling items)
+    // Add timestamp when incrementing (selling items)
+    if (change > 0) {
+        updateData.lastSoldDate = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    // Update stock (Deduct if change > 0, Restore if change < 0)
+    // Deduct ingredients from kitchen if this item has a linked foodId
+    if (item.foodId) {
+        deductIngredientsFromInventory(item.foodId, change);
+    }
+
+    // Deduct from kitchen directly if grocery item linked
+    if (item.kitchenId && typeof deductKitchenStock === 'function') {
+        deductKitchenStock(item.kitchenId, change);
+    }
+
+    db.collection(collection).doc(id).update(updateData).catch(err => console.error("Error updating sold count:", err));
 }
+
+
 

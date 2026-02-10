@@ -3,20 +3,76 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Polina Restaurant Walasmulla - Dashboard</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
 </head>
 
-<body>
+<body style="display: none;">
+
+  <!-- Hamburger Menu for Mobile -->
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+
+  <!-- Sidebar Overlay for Mobile -->
+  <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
   <div class="sidebar">
     <h2>Polina Restaurant</h2>
-    <button class="nav-btn active" onclick="showSection('bakery')">Bakery</button>
-    <button class="nav-btn" onclick="showSection('shop')">Shop</button>
-    <button class="nav-btn" onclick="showSection('kitchen')">Kitchen</button>
-    <button class="nav-btn" onclick="showSection('foods')">Foods</button>
-    <button class="nav-btn" onclick="showSection('salary')">Salary</button>
+
+    <!-- User Info -->
+    <div class="user-info">
+      <div class="user-avatar">👤</div>
+      <div class="user-details">
+        <div class="user-name" id="user-name">User</div>
+        <div class="user-role" id="user-role">Guest</div>
+      </div>
+    </div>
+
+    <div class="nav-btn-container">
+      <button class="nav-btn" onclick="showSection('bakery')">
+        <span class="nav-icon">🍞</span>
+        <span class="nav-text">බේකරිය</span>
+      </button>
+      <button class="nav-btn" onclick="showSection('shop')">
+        <span class="nav-icon">🛒</span>
+        <span class="nav-text">කඩේ</span>
+      </button>
+      <button class="nav-btn" onclick="showSection('kitchen')">
+        <span class="nav-icon">🍳</span>
+        <span class="nav-text">මුළුතැන්ගෙය</span>
+      </button>
+      <button class="nav-btn" onclick="showSection('other-payments')">
+        <span class="nav-icon">💸</span>
+        <span class="nav-text">ගෙවීම්</span>
+      </button>
+      <button class="nav-btn" onclick="showSection('employees')">
+        <span class="nav-icon">👨‍🍳</span>
+        <span class="nav-text">සේවකයින්</span>
+      </button>
+      <button class="nav-btn" onclick="showSection('foods')">
+        <span class="nav-icon">🍽️</span>
+        <span class="nav-text">ආහාර</span>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="toggle-sidebar-btn" onclick="toggleSidebarMode()">
+        <span class="toggle-icon">◀</span>
+      </button>
+    </div>
+
+
+    <!-- Logout Button -->
+    <!-- Logout Button -->
+    <button class="logout-btn" onclick="logout()">
+      <span class="nav-icon">🚪</span>
+      <span class="nav-text">Logout</span>
+    </button>
   </div>
 
   <div class="main-content">
@@ -29,12 +85,15 @@
     <div id="bakery" class="section active">
       <div class="shop-header"
         style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); margin-bottom: 25px; box-shadow: 0 10px 35px rgba(230, 126, 34, 0.2);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="margin: 0; color: white;">🍞 Bakery Management</h2>
-          <button class="btn btn-add-shop-item" onclick="openAddBakeryModal()"
-            style="background: white; color: #d35400;">
-            ➕ Add Bakery Item
-          </button>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <h2 style="margin: 0; color: white;">🍞 බේකරිය</h2>
+          <div style="display: flex; gap: 10px;">
+
+            <button class="btn btn-add-shop-item" onclick="openAddBakeryModal()"
+              style="background: white; color: #d35400;">
+              ➕ බේකරි අයිතම ඇතුලත් කරන්න
+            </button>
+          </div>
         </div>
       </div>
 
@@ -42,12 +101,12 @@
         <table>
           <thead>
             <tr>
-              <th>Item Name</th>
-              <th>Total Baked</th>
-              <th>Sold</th>
-              <th>Balanced Items</th>
-              <th>Unit Price (LKR)</th>
-              <th>Total Profit (LKR)</th>
+              <th>නම</th>
+              <th>Total Baked<br><small>(Last Baked)</small></th>
+              <th>Sold<br><small>(Last Sold)</small></th>
+              <th>ඉතිරිය</th>
+              <th>ඒකක මිල(LKR)</th>
+              <th>මුලු ලාභය (LKR)</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -98,26 +157,24 @@
     </div>
 
     <div id="shop" class="section">
-      <div class="shop-header">
-        <h2>🛒 Shop Management</h2>
-      </div>
+
 
       <!-- Tab Buttons -->
       <div class="shop-tabs">
         <button class="shop-tab-btn active" id="tab-foods" onclick="switchShopTab('foods')">
-          🍽️ Foods
+          🍽️ ආහාර
         </button>
         <button class="shop-tab-btn" id="tab-grocery" onclick="switchShopTab('grocery')">
-          🛍️ Grocery Items
+          🛍️ සිල්ලර බඩු
         </button>
       </div>
 
       <!-- Foods Section -->
       <div class="shop-tab-content active" id="content-foods">
         <div class="shop-section-header">
-          <h3>🍽️ Food Items</h3>
+          <h3>🍽️ ආහාර</h3>
           <button class="btn btn-add-shop-item" onclick="openAddShopItemModal('foods')">
-            ➕ Add Food Item
+            ➕ ආහාර එක් කරන්න
           </button>
         </div>
 
@@ -126,9 +183,10 @@
             <thead>
               <tr>
                 <th>#</th>
-                <th>Product Name</th>
-                <th>Sold Today</th>
-                <th>Revenue (LKR)</th>
+                <th>ආහාර නාමය</th>
+                <th>අද විකිණූ ප්‍රමාණය</th>
+                <th>අන්තිම විකිණූ දිනය</th>
+                <th>ආදායම (LKR)</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -141,9 +199,9 @@
       <!-- Grocery Section -->
       <div class="shop-tab-content" id="content-grocery">
         <div class="shop-section-header">
-          <h3>🛍️ Grocery Items</h3>
+          <h3>🛍️ සිල්ලර බඩු</h3>
           <button class="btn btn-add-shop-item" onclick="openAddShopItemModal('grocery')">
-            ➕ Add Grocery Item
+            ➕ සිල්ලර බඩු එක් කරන්න
           </button>
         </div>
 
@@ -152,12 +210,11 @@
             <thead>
               <tr>
                 <th>#</th>
-                <th>Product Name</th>
-                <th>Stock Count</th>
-                <th>Sold Today</th>
-                <th>Remaining</th>
-                <th>Revenue (LKR)</th>
-                <th>Actions</th>
+                <th>සිල්ලර බඩු නාමය</th>
+                <th>ඉතිරිය</th>
+                <th>අද විකිණූ ප්‍රමාණය</th>
+                <th>අන්තිම විකිණූ දිනය</th>
+                <th>ආදායම (LKR)</th>
               </tr>
             </thead>
             <tbody id="grocery-table-body">
@@ -195,6 +252,12 @@
           <!-- Grocery Item Form (manual input) -->
           <div id="grocery-item-form" class="shop-item-form" style="display: none;">
             <div class="form-group">
+              <label>Select Kitchen Ingredient (Optional - Auto-fill)</label>
+              <select id="shop-grocery-kitchen-select" onchange="autoFillGroceryFromKitchen()">
+                <option value="">-- Manual Entry --</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>Product Name *</label>
               <input type="text" id="shop-grocery-name" placeholder="e.g., Coca Cola, Water Bottle">
             </div>
@@ -218,53 +281,67 @@
 
     <div id="kitchen" class="section">
       <div class="kitchen-header">
-        <h2>Kitchen Inventory Management</h2>
-        <button class="btn btn-add-new-type" onclick="openNewIngredientModal()">
-          ✨ Add New Ingredient Type
-        </button>
+        <h2>මුළුතැන්ගෙයි කළමනාකරණය</h2>
+        <div style="display: flex; gap: 10px;">
+
+          <button class="btn btn-add-new-type" onclick="openNewIngredientModal()">
+            ✨ අලුත් අමුද්‍රව්‍ය එක් කරන්න
+          </button>
+        </div>
       </div>
 
       <!-- Add Stock to Existing Ingredients Form -->
       <div class="kitchen-add-form">
-        <h3 class="form-title">📦 Add Stock for Existing Ingredients</h3>
+        <h3 class="form-title">📦 පවතින අමුද්‍රව්‍ය සඳහා නව තොග එක් කරන්න</h3>
         <div class="form-row">
           <div class="form-field">
-            <label>Select Ingredient</label>
+            <label>අමුද්‍රව්‍ය තෝරන්න</label>
             <select id="kitchen-ingredient-select" onchange="updateExistingIngredientInfo()">
               <option value="">-- Choose Ingredient --</option>
             </select>
           </div>
           <div class="form-field">
-            <label>Quantity to Add</label>
+            <label>එකතු කළ යුතු ප්‍රමාණය</label>
             <div class="qty-input-group">
               <input type="number" id="kitchen-arrived-qty-existing" placeholder="0">
               <input type="text" id="kitchen-arrived-unit-existing" readonly style="flex: 1; background: #f0f0f0;">
             </div>
           </div>
           <div class="form-field">
-            <label>Full Price (LKR)</label>
+            <label>මුළු මිල (LKR)</label>
             <input type="number" id="kitchen-price-existing" placeholder="e.g., 3000" step="0.01">
           </div>
           <div class="form-field">
-            <label>Payment Status</label>
+            <label>ගෙවීම් තත්ත්වය</label>
             <div style="display: flex; gap: 15px; align-items: center; padding-top: 8px;">
               <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                 <input type="radio" name="payment-status-existing" value="paid" checked>
-                <span>Paid</span>
+                <span>ගෙවා ඇත</span>
               </label>
               <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                 <input type="radio" name="payment-status-existing" value="unpaid">
-                <span>Unpaid</span>
+                <span>ගෙවා නැත</span>
               </label>
             </div>
           </div>
           <div class="form-field form-actions">
             <label>&nbsp;</label>
             <button class="btn btn-save-kitchen" onclick="addExistingIngredientStock()">
-              📦 Add Stock
+              📦 එකතු කරන්න
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="kitchen-filter-bar" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+        <label style="font-weight: bold;">Filter by Category:</label>
+        <select id="kitchen-category-filter" onchange="renderKitchen()"
+          style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+          <option value="all">All Categories</option>
+          <option value="food">Food</option>
+          <option value="grocery">Grocery</option>
+          <option value="bakery">Bakery</option>
+        </select>
       </div>
 
       <div class="table-container">
@@ -272,13 +349,13 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Ingredient Name</th>
-              <th>Arrived</th>
-              <th>Used</th>
-              <th>Available</th>
-              <th>Full Price (LKR)</th>
-              <th>Paid Price (LKR)</th>
-              <th>Unpaid Price (LKR)</th>
+              <th>නම</th>
+              <th>පැමිණි<br><small>(Date)</small></th>
+              <th>පාවිච්චි කළ<br><small>(Last Used)</small></th>
+              <th>ලබා ගත හැකි</th>
+              <th>මුළු මිල (LKR)</th>
+              <th>ගෙවූ මිල (LKR)</th>
+              <th>ගෙවා නැති මිල (LKR)</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -299,6 +376,14 @@
           <div class="form-group">
             <label>Ingredient Name *</label>
             <input type="text" id="kitchen-ingredient-name-new" placeholder="e.g., Rice, Chicken, Oil">
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <select id="kitchen-modal-category">
+              <option value="food" selected>Food</option>
+              <option value="grocery">Grocery</option>
+              <option value="bakery">Bakery</option>
+            </select>
           </div>
           <div class="form-group">
             <label>Initial Quantity *</label>
@@ -343,39 +428,21 @@
       <div style="margin-bottom: 20px;">
         <button class="btn btn-primary" onclick="openAddModal()"
           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
-          + Add New Food
+          + නව ආහාර එකතු කරන්න
         </button>
       </div>
       <div class="food-grid" id="food-grid">
       </div>
     </div>
 
-    <div id="salary" class="section">
-      <div class="salary-header"
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); padding: 20px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-        <h2 style="color: white; margin: 0;">Employee Daily Wage Management</h2>
-        <button class="btn btn-add-shop-item" onclick="openAddEmployeeModal()"
-          style="background: white; color: #2c3e50; font-weight: 800; border: none; padding: 12px 24px; border-radius: 8px;">
-          ➕ Add New Employee
-        </button>
-      </div>
-
-      <div class="payroll-summary" style="margin-bottom: 30px;">
-        <div class="summary-card">
-          <span class="summary-label">Total Employees</span>
-          <span class="summary-value" id="total-employees">0</span>
-        </div>
-        <div class="summary-card">
-          <span class="summary-label">Total Earned</span>
-          <span class="summary-value" id="total-earned">LKR 0</span>
-        </div>
-        <div class="summary-card">
-          <span class="summary-label">Total Paid</span>
-          <span class="summary-value" id="total-paid">LKR 0</span>
-        </div>
-        <div class="summary-card highlight">
-          <span class="summary-label">Balance Due</span>
-          <span class="summary-value" id="balance-due">LKR 0</span>
+    <!-- Other Payments Section -->
+    <div id="other-payments" class="section">
+      <div class="shop-header" style="background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);">
+        <h2 style="color: white; margin: 0;">💸 වෙනත් ගෙවීම්</h2>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" onclick="openAddPaymentModal()" style="background: white; color: #16a085;">
+            ➕ ගෙවීම් එක් කරන්න
+          </button>
         </div>
       </div>
 
@@ -383,20 +450,79 @@
         <table>
           <thead>
             <tr>
-              <th>Employee ID</th>
-              <th>Employee Name</th>
-              <th>Department/Role</th>
-              <th>Daily Salary (LKR)</th>
-              <th>Worked Days</th>
-              <th>Total Salary (LKR)</th>
-              <th>Total Paid (LKR)</th>
-              <th>Balance (LKR)</th>
+              <th>දිනය</th>
+              <th>විස්තරය</th>
+              <th>වර්ගය</th>
+              <th>මුදල (LKR)</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="salary-table-body">
+          <tbody id="payments-table-body">
+            <!-- Populated by JS -->
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Employees Section -->
+    <div id="employees" class="section">
+      <div class="shop-header" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <h2 style="color: white; margin: 0;">👨‍🍳 සේවක කළමනාකරණය</h2>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="openAddEmployeeModal()" style="background: white; color: #2980b9;">
+              ➕ සේවක එක් කරන්න
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>නම</th>
+              <th>තනතුර</th>
+              <th>වැටුප් වර්ගය</th>
+              <th>මුදල (LKR)</th>
+              <th>පැමිණීම (අද)</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="employees-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Employee Payment Form -->
+      <div class="shop-header" style="background: linear-gradient(135deg, #16a085 0%, #1abc9c 100%); margin-top: 30px;">
+        <h3 style="color: white; margin: 0;">💸 සේවක වැටුප් වාර්තා කිරීම</h3>
+      </div>
+
+      <div class="kitchen-add-form" style="margin-top: 0;">
+        <div class="form-row">
+          <div class="form-field">
+            <label>සේවක තෝරන්න</label>
+            <select id="payment-employee-select">
+              <option value="">-- සේවක තෝරන්න --</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>මුදල (LKR)</label>
+            <input type="number" id="payment-employee-amount" placeholder="e.g., 5000">
+          </div>
+          <div class="form-field">
+            <label>දිනය</label>
+            <input type="date" id="payment-employee-date">
+          </div>
+          <div class="form-field form-actions">
+            <label>&nbsp;</label>
+            <button class="btn btn-save" onclick="saveEmployeePayment()" style="background: #16a085;">
+              💰 සේවක වැටුප්
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -404,29 +530,42 @@
     <div id="addEmployeeModal" class="modal">
       <div class="modal-content modal-shop">
         <div class="modal-header">
-          <h3>👤 Add New Employee</h3>
+          <h3 id="employee-modal-title">👨‍🍳 Add New Employee</h3>
           <button class="modal-close" onclick="closeAddEmployeeModal()">&times;</button>
         </div>
         <div class="modal-body">
+          <input type="hidden" id="employee-id">
           <div class="form-group">
-            <label>Employee Name *</label>
-            <input type="text" id="emp-name" placeholder="e.g., Kamal Perera">
+            <label>නම *</label>
+            <input type="text" id="employee-name" placeholder="e.g., John Doe">
           </div>
           <div class="form-group">
-            <label>Department / Role *</label>
-            <input type="text" id="emp-role" placeholder="e.g., Waiter, Chef, Cashier">
+            <label>තනතුර *</label>
+            <input type="text" id="employee-position" placeholder="e.g., Chef, Waiter">
           </div>
           <div class="form-group">
-            <label>Daily Salary (LKR) *</label>
-            <input type="number" id="emp-daily-salary" placeholder="e.g., 2000" min="0">
+            <label>වැටුප් වර්ගය *</label>
+            <select id="employee-salary-type">
+              <option value="monthly">මසිකව</option>
+              <option value="daily">දිනපතා</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>මුදල (LKR) *</label>
+            <input type="number" id="employee-amount" placeholder="e.g., 50000 or 1500" min="0">
           </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-cancel" onclick="closeAddEmployeeModal()">Cancel</button>
-          <button class="btn btn-save" onclick="saveNewEmployee()">Save Employee</button>
+          <button class="btn btn-save" onclick="saveEmployee()">Save Employee</button>
         </div>
       </div>
     </div>
+  </div>
+
+
+
+
   </div>
 
   <div id="editModal" class="modal">
@@ -461,19 +600,64 @@
     </div>
   </div>
 
+  <!-- Add Other Payment Modal -->
+  <div id="addPaymentModal" class="modal">
+    <div class="modal-content modal-shop">
+      <div class="modal-header">
+        <h3 id="payment-modal-title">➕ නව ගෙවීම්</h3>
+        <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>විස්තරය *</label>
+          <input type="text" id="payment-description" placeholder="e.g., Transport, Cleaning, Salary Advance">
+        </div>
+        <div class="form-group">
+          <label>වර්ගය *</label>
+          <div style="display: flex; gap: 15px; margin-top: 5px;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+              <input type="radio" name="payment-type" value="expense" checked>
+              🔴 වියදම්
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+              <input type="radio" name="payment-type" value="income">
+              🟢 ආදායම්
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>මුදල (LKR) *</label>
+          <input type="number" id="payment-amount" placeholder="e.g., 500" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>දිනය *</label>
+          <input type="date" id="payment-date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closePaymentModal()">Cancel</button>
+        <button class="btn btn-save" onclick="savePayment()">Save Payment</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts loaded from separate JS files -->
   <!-- Firebase SDKs (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
   <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
   <script src="utils.js"></script>
   <script src="data.js"></script>
   <script src="bakery.js"></script>
   <script src="shop.js"></script>
   <script src="kitchen.js"></script>
-  <script src="salary.js"></script>
+
   <script src="foods.js"></script>
+  <script src="payments.js"></script>
+  <script src="employees.js"></script>
   <script src="navigation.js"></script>
 </body>
 

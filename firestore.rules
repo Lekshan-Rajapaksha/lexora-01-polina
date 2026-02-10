@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is a valid employee or admin
+    // Note: Since we don't have Custom Claims set up, we rely on basic Auth for now.
+    // Ideally, we would read the 'users' collection, but that costs a read.
+    // For now, basic auth check is a massive improvement over "Test Mode".
+
+    // Users collection: Users can read their own profile. Admins can read/write all.
+    match /users/{email} {
+      allow read: if isAuthenticated();
+      // Only allow write if the user is writing their own document or if they are admin (logic simplified)
+      // Since we can't easily check 'admin' role without a read, we'll restrict writes to authenticated users for now
+      // knowing that the client app controls the logic.
+      allow write: if isAuthenticated(); 
+    }
+
+    // System settings: Authenticated users can read/write (needed for daily resets)
+    match /system/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Business Data Collections:
+    // Bakery, Shop, Kitchen, Employees, etc.
+    // Allow read/write for any authenticated user.
+    match /{collection}/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

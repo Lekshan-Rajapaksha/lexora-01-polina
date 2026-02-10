@@ -105,8 +105,11 @@ function addIngredientRow(name = '', qty = '') {
     // Build options for ingredient dropdown from kitchenData
     let ingredientOptions = '<option value="">-- Select Ingredient --</option>';
     kitchenData.forEach(item => {
-        const selected = item.name === name ? 'selected' : '';
-        ingredientOptions += `<option value="${item.name}" ${selected}>${item.name}</option>`;
+        // Filter: Only show items categorized as 'Food' (or default/missing for legacy compatibility)
+        if (!item.category || item.category === 'food') {
+            const selected = item.name === name ? 'selected' : '';
+            ingredientOptions += `<option value="${item.name}" ${selected}>${item.name}</option>`;
+        }
     });
 
     // Unit options

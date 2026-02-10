@@ -1,35 +1,50 @@
-// --- DATA STORE (Firestore Real-time Sync) ---
+// --- DATA MANAGEMENT & FIRESTORE LISTENERS ---
 
-// Initialize global arrays as empty
 let bakeryData = [];
 let foodsShopData = [];
 let groceryShopData = [];
 let kitchenData = [];
-let salaryData = [];
-let foodsData = [];
+let otherPaymentsData = [];
 
-// --- FIRESTORE LISTENERS ---
+let foodsData = [];
+let bakeryDataLoadedOnce = false; // Track if bakery data has loaded at least once
+let foodsShopDataLoadedOnce = false;
+let groceryShopDataLoadedOnce = false;
+
 
 // 1. Bakery Data Listener
 db.collection('bakery').onSnapshot((snapshot) => {
     bakeryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Trigger render if function exists
+
+    // Removed client-side daily reset logic - handled by Cloud Function
+
     if (typeof renderBakery === 'function') renderBakery();
 }, (error) => {
     console.error("Error syncing bakery data:", error);
 });
 
-// 2. Foods Shop Data Listener
+// 2. Shop - Foods Data Listener
 db.collection('foodsShop').onSnapshot((snapshot) => {
     foodsShopData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (typeof renderShop === 'function' && currentShopTab === 'foods') renderShop();
-}, (error) => { console.error("Error syncing foods shop:", error); });
 
-// 3. Grocery Shop Data Listener
+    // Removed client-side daily reset logic - handled by Cloud Function
+
+    if (typeof renderShop === 'function') renderShop();
+}, (error) => { console.error("Error syncing shop foods:", error); });
+
+// 3. Shop - Grocery Data Listener
 db.collection('groceryShop').onSnapshot((snapshot) => {
     groceryShopData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (typeof renderShop === 'function' && currentShopTab === 'grocery') renderShop();
+
+    // Removed client-side daily reset logic - handled by Cloud Function
+
+    if (typeof renderShop === 'function') renderShop();
 }, (error) => { console.error("Error syncing grocery shop:", error); });
+
+let otherPaymentsUnsubscribe = db.collection('otherPayments').onSnapshot((snapshot) => {
+    otherPaymentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (typeof renderOtherPayments === 'function') renderOtherPayments();
+}, (error) => { console.error("Error syncing other payments:", error); });
 
 // 4. Kitchen Data Listener
 db.collection('kitchen').onSnapshot((snapshot) => {
@@ -37,11 +52,7 @@ db.collection('kitchen').onSnapshot((snapshot) => {
     if (typeof renderKitchen === 'function') renderKitchen();
 }, (error) => { console.error("Error syncing kitchen data:", error); });
 
-// 5. Salary Data Listener
-db.collection('salary').onSnapshot((snapshot) => {
-    salaryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (typeof renderSalary === 'function') renderSalary();
-}, (error) => { console.error("Error syncing salary data:", error); });
+
 
 // 6. Foods Menu Data Listener
 db.collection('foods').onSnapshot((snapshot) => {

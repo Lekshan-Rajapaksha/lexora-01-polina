@@ -4,7 +4,13 @@ function renderKitchen() {
     const tbody = document.getElementById('kitchen-table-body');
     tbody.innerHTML = '';
 
+    const filterCat = document.getElementById('kitchen-category-filter') ? document.getElementById('kitchen-category-filter').value : 'all';
+
     kitchenData.forEach((item, index) => {
+        // Filter logic: Default to 'food' if category is missing
+        const itemCat = item.category || 'food';
+        if (filterCat !== 'all' && itemCat !== filterCat) return;
+
         const arrivedValue = parseFloat(item.arrived) || 0;
         const usedValue = parseFloat(item.used) || 0;
         const available = arrivedValue - usedValue;
@@ -17,6 +23,8 @@ function renderKitchen() {
         // Payment tracking (default to paid for old data)
         const totalPaid = parseFloat(item.totalPaid) || fullPrice;
         const unpaidPrice = fullPrice - totalPaid;
+        const arrivedDate = item.arrivedDate ? new Date(item.arrivedDate.seconds * 1000).toLocaleDateString() : 'N/A';
+        const lastUsedDate = item.lastUsedDate ? new Date(item.lastUsedDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
             <tr>
@@ -24,13 +32,15 @@ function renderKitchen() {
                 <td><strong>${item.name}</strong></td>
                 <td class="center">
                     <span class="qty-display">${arrivedValue} ${arrivedUnit}</span>
+                    <br><small style="color: #7f8c8d;">${arrivedDate}</small>
                 </td>
                 <td class="center">
                     <div class="qty-control-inline">
-                        <button class="btn-arrow-small" onclick="updateKitchenUsage('${item.id}', -1)" title="Decrease">−</button>
+                        <button class="btn-qty-dec" onclick="updateKitchenUsage('${item.id}', -1)" title="Decrease">−</button>
                         <span class="qty-value-inline">${usedValue} ${usedUnit}</span>
-                        <button class="btn-arrow-small" onclick="updateKitchenUsage('${item.id}', 1)" title="Increase">+</button>
+                        <button class="btn-qty-inc" onclick="updateKitchenUsage('${item.id}', 1)" title="Increase">+</button>
                     </div>
+                    <br><small style="color: #7f8c8d;">${lastUsedDate}</small>
                 </td>
                 <td class="center">
                     <strong class="available-qty">${available.toFixed(2)} ${arrivedUnit}</strong>
@@ -93,6 +103,9 @@ function closeNewIngredientModal() {
     document.getElementById('kitchen-arrived-qty-new').value = '';
     document.getElementById('kitchen-price-new').value = '';
     document.getElementById('kitchen-arrived-unit-new').value = 'KG';
+    if (document.getElementById('kitchen-modal-category')) {
+        document.getElementById('kitchen-modal-category').value = 'food';
+    }
 }
 
 // Save NEW ingredient type (from modal)
@@ -132,21 +145,41 @@ function saveNewIngredient() {
     // Calculate totalPaid based on payment status
     const totalPaid = paymentStatus === 'paid' ? fullPrice : 0;
 
+    // Get Category
+    const category = document.getElementById('kitchen-modal-category').value || 'food';
+
     // Add new item to Firestore
     db.collection('kitchen').add({
         name,
+        category,
         arrived,
         arrivedUnit,
         used: 0,
         usedUnit: arrivedUnit,
         pricePerUnit,
         totalPaid: totalPaid,
+        arrivedDate: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
+    }).then((docRef) => {
+        // LOG TO STOCK COLLECTION
+        const stockLog = {
+            ingredientId: docRef.id,
+            name: name,
+            qtyAdded: arrived,
+            unit: arrivedUnit,
+            price: fullPrice,
+            paymentStatus: paymentStatus,
+            date: firebase.firestore.FieldValue.serverTimestamp(),
+            readableDate: new Date().toLocaleDateString()
+        };
+        db.collection('stock').add(stockLog).catch(err => console.error("Error logging stock:", err));
+
         closeNewIngredientModal();
         showSuccessMessage(`New ingredient "${name}" added successfully!`);
     });
 }
+
+
 
 // Add stock to EXISTING ingredient
 function addExistingIngredientStock() {
@@ -197,6 +230,19 @@ function addExistingIngredientStock() {
         pricePerUnit: newPricePerUnit,
         totalPaid: newTotalPaid
     }).then(() => {
+        // LOG TO STOCK COLLECTION
+        const stockLog = {
+            ingredientId: String(selectId),
+            name: item.name,
+            qtyAdded: qtyToAdd,
+            unit: item.arrivedUnit || 'KG',
+            price: fullPrice,
+            paymentStatus: paymentStatus,
+            date: firebase.firestore.FieldValue.serverTimestamp(),
+            readableDate: new Date().toLocaleDateString()
+        };
+        db.collection('stock').add(stockLog).catch(err => console.error("Error logging stock:", err));
+
         // Clear form
         document.getElementById('kitchen-ingredient-select').value = '';
         document.getElementById('kitchen-arrived-qty-existing').value = '';
@@ -220,9 +266,83 @@ function updateKitchenUsage(id, change) {
     // Ensure used doesn't go below 0 or above arrived
     if (newUsed < 0 || newUsed > arrived) return;
 
-    db.collection('kitchen').doc(id).update({
-        used: newUsed
-    });
+    const updateData = { used: newUsed };
+
+    // Add timestamp when incrementing usage
+    if (change > 0) {
+        updateData.lastUsedDate = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    db.collection('kitchen').doc(id).update(updateData);
 }
 
 // Delete ingredient (removed, use global deleteDocument)
+
+// Deduct ingredients from inventory when a food limit is sold
+function deductIngredientsFromInventory(foodId, quantitySold) {
+    if (quantitySold === 0) return; // Allow negative values for restoring stock
+
+    const food = foodsData.find(f => f.id == foodId);
+    if (!food || !food.ingredients || food.ingredients.length === 0) return;
+
+    const action = quantitySold > 0 ? "Deducting" : "Restoring";
+    console.log(`${action} ingredients for ${Math.abs(quantitySold)}x ${food.name}`);
+
+    food.ingredients.forEach(ing => {
+        // Parse ingredient quantity (e.g., "200g" -> 200, "g")
+        const match = ing.qty.match(/^([\d.]+)\s*(.*)$/);
+        if (!match) return;
+
+        const reqQtyPerItem = parseFloat(match[1]);
+        const reqUnit = match[2] || 'g';
+
+        // Find matching kitchen item(s) by name
+        // Use lowercase comparison for robustness
+        const kitchenItem = kitchenData.find(k => k.name.toLowerCase() === ing.name.toLowerCase());
+
+        if (kitchenItem) {
+            // Calculate total required amount
+            const totalReqQty = reqQtyPerItem * quantitySold;
+
+            // Convert to Kitchen Item's unit
+            const convertedQty = convertUnit(totalReqQty, reqUnit, kitchenItem.arrivedUnit || 'KG');
+
+            console.log(`- ${ing.name}: Change ${totalReqQty}${reqUnit} -> ${action} ${Math.abs(convertedQty).toFixed(4)} ${kitchenItem.arrivedUnit} from inventory`);
+
+            // Update Kitchen Inventory (Increase Used amount)
+            // If quantitySold is negative, convertedQty is negative, so Used amount decreases (stock increases)
+            const newUsed = (parseFloat(kitchenItem.used) || 0) + convertedQty;
+
+            // Check if we have enough stock? (Optional: warn if newUsed > arrived)
+            // For now, just update.
+
+            db.collection('kitchen').doc(kitchenItem.id).update({
+                used: newUsed,
+                lastUsedDate: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(err => console.error(`Error updating stock for ${ing.name}:`, err));
+        } else {
+            console.warn(`Ingredient not found in kitchen: ${ing.name}`);
+        }
+    });
+}
+
+// Deduct directly from kitchen stock (for linked grocery items)
+function deductKitchenStock(kitchenId, quantity) {
+    if (quantity === 0) return; // Allow negative values
+
+    const item = kitchenData.find(i => i.id === kitchenId);
+    if (!item) {
+        console.warn(`Kitchen item not found for ID: ${kitchenId}`);
+        return;
+    }
+
+    const action = quantity > 0 ? "Deducting" : "Restoring";
+    console.log(`${action} ${Math.abs(quantity)} from ${item.name} (Grocery Sale)`);
+
+    const newUsed = (parseFloat(item.used) || 0) + quantity;
+
+    db.collection('kitchen').doc(kitchenId).update({
+        used: newUsed,
+        lastUsedDate: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err => console.error(`Error updating kitchen stock for ${item.name}:`, err));
+}

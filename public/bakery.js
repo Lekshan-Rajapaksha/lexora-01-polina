@@ -1,8 +1,93 @@
 // --- BAKERY SECTION ---
 
+// Daily reset is handled by Client-Side Logic (via checkAndPerformBakeryReset)
+
+// --- 3. AUTO-RESET LOGIC (Client-Side) ---
+
+let hasCheckedBakeryReset = false; // Ensure logic runs only once per session/reload
+
+async function checkAndPerformBakeryReset() {
+    if (hasCheckedBakeryReset) return;
+    hasCheckedBakeryReset = true;
+
+    try {
+        console.log("Checking daily reset status for Bakery...");
+        const settingsDoc = await db.collection('system').doc('bakerySettings').get();
+        const todayStr = getLocalDateString(); // YYYY-MM-DD in local timezone
+
+        let lastResetDate = null;
+        if (settingsDoc.exists) {
+            lastResetDate = settingsDoc.data().lastResetDate;
+        }
+
+        if (lastResetDate === todayStr) {
+            console.log("Bakery is already reset for today.");
+            return;
+        }
+
+        // Use the lastResetDate as the history date effectively
+        // If lastResetDate is "2024-01-01", that's the day we are archiving FOR.
+        const archiveDate = lastResetDate ? new Date(lastResetDate) : new Date(todayStr); // Fallback if null, though unlikely if logic matches
+
+        console.log(`Performing daily reset... Last: ${lastResetDate}, Today: ${todayStr}, Archiving as: ${getLocalDateString(archiveDate)}`);
+        showSuccessMessage("Performing Daily Reset... ⏳");
+
+        const batch = db.batch();
+        let operationCount = 0;
+
+        // Use archiveDate instead of todayDate (which was new Date())
+        // const todayDate = new Date(); // REMOVED
+
+        bakeryData.forEach(item => {
+            const baked = parseInt(item.baked) || 0;
+            const sold = parseInt(item.sold) || 0;
+
+            if (baked > 0 || sold > 0) {
+                // Archive
+                const historyRef = db.collection('bakeryHistory').doc();
+                batch.set(historyRef, {
+                    ...item,
+                    date: archiveDate, // Corrected date
+                    archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Reset
+                const itemRef = db.collection('bakery').doc(item.id);
+                batch.update(itemRef, {
+                    baked: 0,
+                    sold: 0,
+                    date: new Date() // Reset the item's current date to NOW (new day)
+                });
+
+                operationCount++;
+            }
+        });
+
+        // Update settings
+        const settingsRef = db.collection('system').doc('bakerySettings');
+        batch.set(settingsRef, { lastResetDate: todayStr }, { merge: true });
+
+        if (operationCount > 0) {
+            await batch.commit();
+            console.log(`Reset complete. Reset ${operationCount} items.`);
+            showSuccessMessage("Daily Reset Complete! 🌅");
+        } else {
+            // Just update the date if no items needed resetting
+            await settingsRef.set({ lastResetDate: todayStr }, { merge: true });
+            console.log("No items needed resetting, date updated.");
+        }
+
+    } catch (error) {
+        console.error("Error in checkAndPerformBakeryReset:", error);
+    }
+}
+
+// Call this at the end of renderBakery
 function renderBakery() {
     const tbody = document.getElementById('bakery-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
+
     bakeryData.forEach(item => {
         // Look up current name and price from Foods if foodId exists
         let currentName = item.name; // Default to stored name
@@ -21,6 +106,10 @@ function renderBakery() {
 
         const balanced = item.baked - item.sold;
         const profit = item.sold * currentPrice;
+        // Always show current date instead of N/A
+        const currentDate = new Date().toLocaleDateString();
+        const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : currentDate;
+        const lastBakedDate = item.lastBakedDate ? new Date(item.lastBakedDate.seconds * 1000).toLocaleDateString() : currentDate;
 
         tbody.innerHTML += `
             <tr>
@@ -31,6 +120,7 @@ function renderBakery() {
                            class="inline-qty-input" 
                            onchange="updateBakeryDocument(this, '${item.id}', 'baked', ${item.sold})" 
                            min="0">
+                   <br><small style="color: #7f8c8d;">${currentDate}</small>
                 </td>
                 <td class="center">
                     <input type="number" 
@@ -38,6 +128,7 @@ function renderBakery() {
                            class="inline-qty-input" 
                            onchange="updateBakeryDocument(this, '${item.id}', 'sold', ${item.baked})" 
                            min="0">
+                    <br><small style="color: #7f8c8d;">${currentDate}</small>
                 </td>
                 <td class="center" style="color:${balanced < 5 ? '#e74c3c' : '#27ae60'}; font-weight:bold;">${balanced}</td>
                 <td class="currency"><strong>${formatCurrency(currentPrice)}</strong></td>
@@ -50,6 +141,9 @@ function renderBakery() {
             </tr>
         `;
     });
+
+    // Attempt Auto-Reset
+    checkAndPerformBakeryReset();
 }
 
 // Populate Food Dropdown for Bakery
@@ -119,6 +213,21 @@ function updateBakeryDocument(input, id, field, constraintValue) {
     }).then(() => {
         // success - do nothing, listener updates UI
         console.log("Updated", field);
+
+        // Deduct ingredients if 'sold' increased
+        if (field === 'sold') {
+            const currentItem = bakeryData.find(i => i.id === id);
+            // bakeryData still holds the old value until snapshot updates, 
+            // BUT we just updated the DB. Snapshot comes async. 
+            // So currentItem.sold is likely the OLD value.
+            if (currentItem) {
+                const oldSold = currentItem.sold || 0;
+                const delta = newValue - oldSold;
+                if (delta > 0 && currentItem.foodId) {
+                    deductIngredientsFromInventory(currentItem.foodId, delta);
+                }
+            }
+        }
     }).catch(err => {
         console.error("Error updating:", err);
         alert("Failed to update database");
@@ -160,9 +269,18 @@ function saveBakeryItem() {
 
     if (id) {
         // Edit existing
-        db.collection('bakery').doc(id).update({
-            name, baked, sold, price, foodId: foodId || null
-        }).then(() => {
+        const existingItem = bakeryData.find(i => i.id === id);
+        const updateData = { name, baked, sold, price, foodId: foodId || null };
+
+        // Add timestamps if values changed
+        if (existingItem && baked !== existingItem.baked) {
+            updateData.lastBakedDate = firebase.firestore.FieldValue.serverTimestamp();
+        }
+        if (existingItem && sold !== existingItem.sold) {
+            updateData.lastSoldDate = firebase.firestore.FieldValue.serverTimestamp();
+        }
+
+        db.collection('bakery').doc(id).update(updateData).then(() => {
             showSuccessMessage('Bakery item updated! 🍞');
             closeBakeryModal();
         });
@@ -171,6 +289,8 @@ function saveBakeryItem() {
         const newDocRef = db.collection('bakery').doc();
         newDocRef.set({
             name, baked, sold, price, foodId: foodId || null,
+            date: new Date(),
+            lastBakedDate: firebase.firestore.FieldValue.serverTimestamp(),
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         }).then(() => {
             showSuccessMessage('New bakery item added! 🍞');
@@ -178,4 +298,5 @@ function saveBakeryItem() {
         });
     }
 }
+
 

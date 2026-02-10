@@ -1,12 +1,13 @@
 // --- FIREBASE CONFIGURATION ---
 // REPLACE THE VALUES BELOW WITH YOUR OWN FIREBASE CONFIG FROM THE CONSOLE
 const firebaseConfig = {
-    apiKey: "AIzaSyCij_lx3soFwbSxAIa3QuwTpTsfNUt1JOc",
-    authDomain: "polinalk.firebaseapp.com",
-    projectId: "polinalk",
-    storageBucket: "polinalk.firebasestorage.app",
-    messagingSenderId: "730062617765",
-    appId: "1:730062617765:web:7c21d4b2b3b3b3b3b3b3b3"
+    apiKey: "AIzaSyCon896taIWlaY-6_bElPYQ5hIiWxhLhVY",
+    authDomain: "polinaresturant.firebaseapp.com",
+    projectId: "polinaresturant",
+    storageBucket: "polinaresturant.firebasestorage.app",
+    messagingSenderId: "515907915894",
+    appId: "1:515907915894:web:79ac25e65ae005f5000f57",
+    measurementId: "G-0LPWSR59JH"
 };
 
 // Initialize Firebase (Compat version for script-tag usage)

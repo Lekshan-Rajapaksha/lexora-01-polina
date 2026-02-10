@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Cleanup Tool</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            color: white;
+            background: red;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+        .log {
+            margin-top: 20px;
+            text-align: left;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Salary Database Cleanup</h1>
+    <p>This tool will PERMANENTLY delete the 'salary' and 'salaryHistory' collections and 'system/salarySettings'.</p>
+    <button class="btn" onclick="deleteSalaryData()">🗑️ DELETE ALL SALARY DATA</button>
+    <div id="log" class="log"></div>
+
+    <script>
+        const db = firebase.firestore();
+        const logDiv = document.getElementById('log');
+
+        function log(msg) {
+            logDiv.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+            console.log(msg);
+        }
+
+        async function deleteCollection(collectionPath) {
+            log(`Starting deletion of collection: ${collectionPath}...`);
+            const batchSize = 100;
+            const collectionRef = db.collection(collectionPath);
+            const query = collectionRef.orderBy('__name__').limit(batchSize);
+
+            return new Promise((resolve, reject) => {
+                deleteQueryBatch(db, query, resolve).catch(reject);
+            });
+        }
+
+        async function deleteQueryBatch(db, query, resolve) {
+            const snapshot = await query.get();
+
+            const batchSize = snapshot.size;
+            if (batchSize === 0) {
+                // When there are no documents left, we are done
+                resolve();
+                return;
+            }
+
+            const batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+            log(`Deleted ${batchSize} docs from query.`);
+
+            // Recurse on the next process tick, to avoid
+            // exploding the stack.
+            setTimeout(() => {
+                deleteQueryBatch(db, query, resolve);
+            }, 0);
+        }
+
+        async function deleteSalaryData() {
+            if (!confirm("Are you sure? This cannot be undone.")) return;
+
+            try {
+                // Delete collections
+                await deleteCollection('salary');
+                log("Deleted 'salary' collection.");
+
+                await deleteCollection('salaryHistory');
+                log("Deleted 'salaryHistory' collection.");
+
+                // Delete system settings
+                await db.collection('system').doc('salarySettings').delete();
+                log("Deleted 'system/salarySettings'.");
+
+                log("Cleanup Complete! You can close this page.");
+                alert("All salary data deleted successfully.");
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                console.error(error);
+                alert("Error occurred. Check logs.");
+            }
+        }
+    </script>
+</body>
+
+</html>
