@@ -41,6 +41,7 @@ async function checkAndPerformBakeryReset() {
         bakeryData.forEach(item => {
             const baked = parseInt(item.baked) || 0;
             const sold = parseInt(item.sold) || 0;
+            const itemRef = db.collection('bakery').doc(item.id);
 
             if (baked > 0 || sold > 0) {
                 // Archive
@@ -52,13 +53,18 @@ async function checkAndPerformBakeryReset() {
                 });
 
                 // Reset
-                const itemRef = db.collection('bakery').doc(item.id);
                 batch.update(itemRef, {
                     baked: 0,
                     sold: 0,
                     date: new Date() // Reset the item's current date to NOW (new day)
                 });
 
+                operationCount++;
+            } else {
+                // Even items with 0 baked/sold get date updated
+                batch.update(itemRef, {
+                    date: new Date()
+                });
                 operationCount++;
             }
         });
