@@ -5,6 +5,7 @@ let foodsShopData = [];
 let groceryShopData = [];
 let kitchenData = [];
 let otherPaymentsData = [];
+let checksData = [];
 
 let foodsData = [];
 let bakeryDataLoadedOnce = false; // Track if bakery data has loaded at least once
@@ -53,6 +54,12 @@ db.collection('kitchen').onSnapshot((snapshot) => {
 }, (error) => { console.error("Error syncing kitchen data:", error); });
 
 
+
+// 5. Checks Data Listener
+db.collection('checks').onSnapshot((snapshot) => {
+    checksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (typeof renderChecks === 'function') renderChecks();
+}, (error) => { console.error("Error syncing checks data:", error); });
 
 // 6. Foods Menu Data Listener
 db.collection('foods').onSnapshot((snapshot) => {

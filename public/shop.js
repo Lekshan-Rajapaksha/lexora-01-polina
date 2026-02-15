@@ -3,6 +3,7 @@
 
 let currentShopTab = 'foods'; // Track current tab
 let currentShopCategory = ''; // Track which category modal is for
+let shopSearchFilter = ''; // Track search filter
 
 // Daily reset is handled by Client-Side Logic (via checkAndPerformShopReset)
 
@@ -26,6 +27,8 @@ function renderFoodsShop() {
     const tbody = document.getElementById('foods-table-body');
     tbody.innerHTML = '';
 
+    let visibleIndex = 0;
+    let tempVisibleIndex = 0; // Temporary counter to check index before filtering
     foodsShopData.forEach((item, index) => {
         // Look up current name and price from Foods if foodId exists
         let currentName = item.name; // Default to stored name
@@ -42,12 +45,26 @@ function renderFoodsShop() {
             }
         }
 
+        tempVisibleIndex++; // Increment before filtering to get the correct index
+
+        // Apply search filter - check both name and index number
+        if (shopSearchFilter) {
+            const searchLower = shopSearchFilter.toLowerCase();
+            const nameMatch = currentName.toLowerCase().includes(searchLower);
+            const numberMatch = tempVisibleIndex.toString() === shopSearchFilter.trim();
+
+            if (!nameMatch && !numberMatch) {
+                return; // Skip items that don't match search
+            }
+        }
+
+        visibleIndex++;
         const revenue = item.sold * currentPrice;
         const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
             <tr>
-                <td class="center"><strong>${index + 1}</strong></td>
+                <td class="center"><strong>${visibleIndex}</strong></td>
                 <td><strong>${currentName}${priceWarning}</strong></td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
                 <td class="center"><small style="color: #7f8c8d;">${lastSoldDate}</small></td>
@@ -73,7 +90,23 @@ function renderGroceryShop() {
     const tbody = document.getElementById('grocery-table-body');
     tbody.innerHTML = '';
 
+    let visibleIndex = 0;
+    let tempVisibleIndex = 0; // Temporary counter to check index before filtering
     groceryShopData.forEach((item, index) => {
+        tempVisibleIndex++; // Increment before filtering to get the correct index
+
+        // Apply search filter - check both name and index number
+        if (shopSearchFilter) {
+            const searchLower = shopSearchFilter.toLowerCase();
+            const nameMatch = item.name.toLowerCase().includes(searchLower);
+            const numberMatch = tempVisibleIndex.toString() === shopSearchFilter.trim();
+
+            if (!nameMatch && !numberMatch) {
+                return; // Skip items that don't match search
+            }
+        }
+
+        visibleIndex++;
         // Calculate Actual Available from Kitchen
         let actualAvailable = 'N/A';
         let stockColor = '#7f8c8d'; // gray default
@@ -104,7 +137,7 @@ function renderGroceryShop() {
 
         tbody.innerHTML += `
             <tr>
-                <td class="center"><strong>${index + 1}</strong></td>
+                <td class="center"><strong>${visibleIndex}</strong></td>
                 <td><strong>${item.name}</strong></td>
                 <td class="center" style="color: ${stockColor}; font-weight: bold;">
                     ${actualAvailable}
@@ -486,5 +519,14 @@ function updateShopSold(collection, id, change) {
     db.collection(collection).doc(id).update(updateData).catch(err => console.error("Error updating sold count:", err));
 }
 
+// Filter shop items based on search input
+function filterShopItems() {
+    const searchInput = document.getElementById('shop-search-input');
+    shopSearchFilter = searchInput ? searchInput.value.trim() : '';
+
+    // Re-render both tables with the new filter
+    renderFoodsShop();
+    renderGroceryShop();
+}
 
 

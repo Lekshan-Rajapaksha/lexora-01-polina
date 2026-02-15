@@ -56,6 +56,7 @@ async function checkAndPerformBakeryReset() {
                 batch.update(itemRef, {
                     baked: 0,
                     sold: 0,
+                    remaining: 0,
                     date: new Date() // Reset the item's current date to NOW (new day)
                 });
 
@@ -110,8 +111,11 @@ function renderBakery() {
             }
         }
 
-        const balanced = item.baked - item.sold;
-        const profit = item.sold * currentPrice;
+        // Calculate remaining (balanced) from the item
+        const remaining = item.remaining !== undefined ? item.remaining : (item.baked - item.sold);
+        // Auto-calculate sold from baked minus remaining
+        const sold = item.baked - remaining;
+        const profit = sold * currentPrice;
         // Always show current date instead of N/A
         const currentDate = new Date().toLocaleDateString();
         const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : currentDate;
@@ -124,19 +128,21 @@ function renderBakery() {
                    <input type="number" 
                            value="${item.baked}" 
                            class="inline-qty-input" 
-                           onchange="updateBakeryDocument(this, '${item.id}', 'baked', ${item.sold})" 
+                           onchange="updateBakeryDocument(this, '${item.id}', 'baked', ${remaining})" 
                            min="0">
                    <br><small style="color: #7f8c8d;">${currentDate}</small>
                 </td>
-                <td class="center">
-                    <input type="number" 
-                           value="${item.sold}" 
-                           class="inline-qty-input" 
-                           onchange="updateBakeryDocument(this, '${item.id}', 'sold', ${item.baked})" 
-                           min="0">
+                <td class="center" style="color:#95a5a6; font-weight:bold;">
+                    ${sold}
                     <br><small style="color: #7f8c8d;">${currentDate}</small>
                 </td>
-                <td class="center" style="color:${balanced < 5 ? '#e74c3c' : '#27ae60'}; font-weight:bold;">${balanced}</td>
+                <td class="center">
+                    <input type="number" 
+                           value="${remaining}" 
+                           class="inline-qty-input" 
+                           onchange="updateBakeryDocument(this, '${item.id}', 'remaining', ${item.baked})" 
+                           min="0">
+                </td>
                 <td class="currency"><strong>${formatCurrency(currentPrice)}</strong></td>
                 <td class="currency"><strong>${formatCurrency(profit)}</strong></td>
                 <td class="action-cell">
@@ -192,52 +198,84 @@ function updateBakeryDocument(input, id, field, constraintValue) {
 
     if (newValue < 0) {
         alert('Quantity cannot be negative');
-        input.value = bakeryData.find(i => i.id === id)[field]; // Reset
-        return;
-    }
-
-    if (field === 'sold' && newValue > constraintValue) {
-        alert('Sold quantity cannot be greater than baked quantity!');
-        input.value = bakeryData.find(i => i.id === id)[field]; // Reset
-        return;
-    }
-
-    // Validate constraint if updating baked
-    if (field === 'baked') {
         const currentItem = bakeryData.find(i => i.id === id);
-        if (currentItem.sold > newValue) {
-            // For now, let's just warn or block?
-            // Let's allow but maybe warn. Actually standard logic:
-            // If baked < sold, it's invalid.
-            // Ideally we update sold to match baked if baked < sold?
-            // Let's just update for now.
+        if (field === 'remaining') {
+            const remaining = currentItem.remaining !== undefined ? currentItem.remaining : (currentItem.baked - currentItem.sold);
+            input.value = remaining;
+        } else {
+            input.value = currentItem[field];
         }
+        return;
     }
 
-    db.collection('bakery').doc(id).update({
-        [field]: newValue
-    }).then(() => {
-        // success - do nothing, listener updates UI
-        console.log("Updated", field);
+    const currentItem = bakeryData.find(i => i.id === id);
+    const updateData = {};
 
-        // Deduct ingredients if 'sold' increased
-        if (field === 'sold') {
-            const currentItem = bakeryData.find(i => i.id === id);
-            // bakeryData still holds the old value until snapshot updates, 
-            // BUT we just updated the DB. Snapshot comes async. 
-            // So currentItem.sold is likely the OLD value.
-            if (currentItem) {
-                const oldSold = currentItem.sold || 0;
-                const delta = newValue - oldSold;
-                if (delta > 0 && currentItem.foodId) {
-                    deductIngredientsFromInventory(currentItem.foodId, delta);
-                }
-            }
+    if (field === 'remaining') {
+        // User updated remaining, calculate sold
+        const baked = currentItem.baked || 0;
+
+        if (newValue > baked) {
+            alert('Remaining quantity cannot be greater than baked quantity!');
+            const remaining = currentItem.remaining !== undefined ? currentItem.remaining : (currentItem.baked - currentItem.sold);
+            input.value = remaining;
+            return;
         }
-    }).catch(err => {
-        console.error("Error updating:", err);
-        alert("Failed to update database");
-    });
+
+        const newSold = baked - newValue;
+        updateData.remaining = newValue;
+        updateData.sold = newSold;
+
+        // Check if sold increased for ingredient deduction
+        const oldSold = currentItem.sold || 0;
+        const soldDelta = newSold - oldSold;
+
+        db.collection('bakery').doc(id).update(updateData).then(() => {
+            console.log("Updated remaining and auto-calculated sold");
+
+            // Deduct ingredients if sold increased
+            if (soldDelta > 0 && currentItem.foodId) {
+                deductIngredientsFromInventory(currentItem.foodId, soldDelta);
+            }
+        }).catch(err => {
+            console.error("Error updating:", err);
+            alert("Failed to update database");
+        });
+
+    } else if (field === 'baked') {
+        // User updated baked, recalculate sold based on remaining
+        const currentRemaining = currentItem.remaining !== undefined ? currentItem.remaining : (currentItem.baked - currentItem.sold);
+
+        if (currentRemaining > newValue) {
+            // If new baked is less than remaining, set remaining to baked (sold = 0)
+            updateData.baked = newValue;
+            updateData.remaining = newValue;
+            updateData.sold = 0;
+        } else {
+            // Maintain remaining, recalculate sold
+            updateData.baked = newValue;
+            updateData.remaining = currentRemaining;
+            updateData.sold = newValue - currentRemaining;
+        }
+
+        db.collection('bakery').doc(id).update(updateData).then(() => {
+            console.log("Updated baked and recalculated sold");
+        }).catch(err => {
+            console.error("Error updating:", err);
+            alert("Failed to update database");
+        });
+
+    } else {
+        // Old logic for other fields (if any)
+        updateData[field] = newValue;
+
+        db.collection('bakery').doc(id).update(updateData).then(() => {
+            console.log("Updated", field);
+        }).catch(err => {
+            console.error("Error updating:", err);
+            alert("Failed to update database");
+        });
+    }
 }
 
 // Open Add Bakery Modal
@@ -273,10 +311,12 @@ function saveBakeryItem() {
     if (price <= 0) { alert('Please enter valid price'); return; }
     if (sold > baked) { alert('Sold quantity cannot be greater than baked quantity!'); return; }
 
+    const remaining = baked - sold; // Calculate remaining
+
     if (id) {
         // Edit existing
         const existingItem = bakeryData.find(i => i.id === id);
-        const updateData = { name, baked, sold, price, foodId: foodId || null };
+        const updateData = { name, baked, sold, remaining, price, foodId: foodId || null };
 
         // Add timestamps if values changed
         if (existingItem && baked !== existingItem.baked) {
@@ -294,7 +334,7 @@ function saveBakeryItem() {
         // Add new
         const newDocRef = db.collection('bakery').doc();
         newDocRef.set({
-            name, baked, sold, price, foodId: foodId || null,
+            name, baked, sold, remaining, price, foodId: foodId || null,
             date: new Date(),
             lastBakedDate: firebase.firestore.FieldValue.serverTimestamp(),
             createdAt: firebase.firestore.FieldValue.serverTimestamp()

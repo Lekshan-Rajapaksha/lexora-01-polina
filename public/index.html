@@ -58,6 +58,10 @@
         <span class="nav-icon">🍽️</span>
         <span class="nav-text">ආහාර</span>
       </button>
+      <button class="nav-btn" onclick="showSection('checks')">
+        <span class="nav-icon">📝</span>
+        <span class="nav-text">චෙක් විස්තර</span>
+      </button>
     </div>
 
     <div class="sidebar-footer">
@@ -167,6 +171,22 @@
         <button class="shop-tab-btn" id="tab-grocery" onclick="switchShopTab('grocery')">
           🛍️ සිල්ලර බඩු
         </button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="shop-search-container" style="margin: 20px 0;">
+        <input type="text" id="shop-search-input" placeholder="🔍 සොයන්න... (Search by name)"
+          oninput="filterShopItems()" style="width: 100%; 
+                 padding: 12px 20px; 
+                 font-size: 16px; 
+                 border: 2px solid #e0e0e0; 
+                 border-radius: 10px; 
+                 background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                 box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                 transition: all 0.3s ease;
+                 font-family: 'Inter', sans-serif;"
+          onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.15)';"
+          onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)';">
       </div>
 
       <!-- Foods Section -->
@@ -352,6 +372,7 @@
               <th>නම</th>
               <th>පැමිණි<br><small>(Date)</small></th>
               <th>පාවිච්චි කළ<br><small>(Last Used)</small></th>
+              <th>ගණන</th>
               <th>ලබා ගත හැකි</th>
               <th>මුළු මිල (LKR)</th>
               <th>ගෙවූ මිල (LKR)</th>
@@ -526,6 +547,36 @@
       </div>
     </div>
 
+    <!-- Check Details Section -->
+    <div id="checks" class="section">
+      <div class="shop-header" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <h2 style="color: white; margin: 0;">📝 චෙක් විස්තර</h2>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="openAddCheckModal()" style="background: white; color: #8e44ad;">
+              ➕ චෙක් එක් කරන්න
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>චෙක් නාමය</th>
+              <th>මුදල (LKR)</th>
+              <th>කල් ඉකුත් වීමේ දිනය</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="checks-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Add Employee Modal -->
     <div id="addEmployeeModal" class="modal">
       <div class="modal-content modal-shop">
@@ -641,6 +692,34 @@
     </div>
   </div>
 
+  <!-- Add Check Modal -->
+  <div id="addCheckModal" class="modal">
+    <div class="modal-content modal-shop">
+      <div class="modal-header">
+        <h3 id="check-modal-title">📝 නව චෙක්</h3>
+        <button class="modal-close" onclick="closeCheckModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>චෙක් නාමය *</label>
+          <input type="text" id="check-name" placeholder="e.g., Customer Check #001">
+        </div>
+        <div class="form-group">
+          <label>මුදල (LKR) *</label>
+          <input type="number" id="check-price" placeholder="e.g., 50000" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>කල් ඉකුත් වීමේ දිනය *</label>
+          <input type="date" id="check-due-date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeCheckModal()">Cancel</button>
+        <button class="btn btn-save" onclick="saveCheck()">Save Check</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts loaded from separate JS files -->
   <!-- Firebase SDKs (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -658,6 +737,7 @@
   <script src="foods.js"></script>
   <script src="payments.js"></script>
   <script src="employees.js"></script>
+  <script src="checks.js"></script>
   <script src="navigation.js"></script>
 </body>
 

@@ -19,6 +19,7 @@ function renderKitchen() {
 
         const arrivedUnit = item.arrivedUnit || 'KG';
         const usedUnit = item.usedUnit || 'KG';
+        const count = parseFloat(item.count) || 1;
 
         // Payment tracking (default to paid for old data)
         const totalPaid = parseFloat(item.totalPaid) || fullPrice;
@@ -41,6 +42,12 @@ function renderKitchen() {
                         <button class="btn-qty-inc" onclick="updateKitchenUsage('${item.id}', 1)" title="Increase">+</button>
                     </div>
                     <br><small style="color: #7f8c8d;">${lastUsedDate}</small>
+                </td>
+                <td class="center">
+                    <input type="number" value="${count}" min="0.01" step="any" 
+                           onchange="updateIngredientCount('${item.id}', this.value)"
+                           style="width: 60px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 4px;"
+                           title="Quantity to add/remove per click">
                 </td>
                 <td class="center">
                     <strong class="available-qty">${available.toFixed(2)} ${arrivedUnit}</strong>
@@ -158,6 +165,7 @@ function saveNewIngredient() {
         usedUnit: arrivedUnit,
         pricePerUnit,
         totalPaid: totalPaid,
+        count: 1,
         arrivedDate: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then((docRef) => {
@@ -260,7 +268,11 @@ function updateKitchenUsage(id, change) {
     const item = kitchenData.find(i => i.id === id);
     if (!item) return;
 
-    const newUsed = (parseFloat(item.used) || 0) + change;
+    // Get count value (default to 1 if not set)
+    const count = parseFloat(item.count) || 1;
+    const actualChange = change * count;
+
+    const newUsed = (parseFloat(item.used) || 0) + actualChange;
     const arrived = parseFloat(item.arrived) || 0;
 
     // Ensure used doesn't go below 0 or above arrived
@@ -274,6 +286,27 @@ function updateKitchenUsage(id, change) {
     }
 
     db.collection('kitchen').doc(id).update(updateData);
+}
+
+// Update ingredient count value
+function updateIngredientCount(id, newCount) {
+    const count = parseFloat(newCount) || 1;
+
+    // Ensure count is greater than 0
+    if (count <= 0) {
+        alert('Count must be greater than 0');
+        renderKitchen(); // Re-render to reset invalid input
+        return;
+    }
+
+    db.collection('kitchen').doc(id).update({
+        count: count
+    }).then(() => {
+        console.log(`Updated count to ${count} for ingredient ${id}`);
+    }).catch(err => {
+        console.error('Error updating count:', err);
+        alert('Failed to update count');
+    });
 }
 
 // Delete ingredient (removed, use global deleteDocument)
