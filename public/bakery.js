@@ -165,7 +165,10 @@ function populateBakeryFoodDropdown() {
 
     select.innerHTML = '<option value="">-- Choose Food Item --</option>';
 
-    foodsData.forEach(food => {
+    // Sort foods alphabetically
+    const sortedFoods = [...foodsData].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedFoods.forEach(food => {
         const option = document.createElement('option');
         option.value = food.id;
         option.textContent = `${food.name} - LKR ${food.price}`;

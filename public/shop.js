@@ -5,6 +5,58 @@ let currentShopTab = 'foods'; // Track current tab
 let currentShopCategory = ''; // Track which category modal is for
 let shopSearchFilter = ''; // Track search filter
 
+// --- LOCAL BUFFER FOR SHOP +/- CLICKS ---
+// Stores pending sold-count changes: { [collection/id]: { collection, id, delta, origSold, foodId, kitchenId } }
+const pendingShopChanges = {};
+let shopFlushTimer = null;
+const SHOP_FLUSH_DELAY_MS = 60000; // 1 minute
+
+// Schedule (or re-schedule) the flush after SHOP_FLUSH_DELAY_MS of inactivity
+function scheduleShopFlush() {
+    if (shopFlushTimer) clearTimeout(shopFlushTimer);
+    shopFlushTimer = setTimeout(flushShopChanges, SHOP_FLUSH_DELAY_MS);
+}
+
+// Write all buffered changes to Firestore in one batch
+async function flushShopChanges() {
+    const keys = Object.keys(pendingShopChanges);
+    if (keys.length === 0) return;
+
+    console.log(`Flushing ${keys.length} pending shop change(s) to Firestore...`);
+
+    const batch = db.batch();
+
+    keys.forEach(key => {
+        const entry = pendingShopChanges[key];
+        const ref = db.collection(entry.collection).doc(entry.id);
+        const updateData = { sold: entry.newSold };
+        if (entry.lastSoldDate) {
+            updateData.lastSoldDate = firebase.firestore.FieldValue.serverTimestamp();
+        }
+        batch.update(ref, updateData);
+    });
+
+    try {
+        await batch.commit();
+        console.log('Shop changes flushed successfully.');
+    } catch (err) {
+        console.error('Error flushing shop changes:', err);
+    }
+
+    // Clear the buffer after flush
+    keys.forEach(key => delete pendingShopChanges[key]);
+    if (shopFlushTimer) { clearTimeout(shopFlushTimer); shopFlushTimer = null; }
+}
+
+// Flush on page unload so no data is lost
+window.addEventListener('beforeunload', () => {
+    // Use synchronous sendBeacon / navigator.sendBeacon is not available for Firestore,
+    // but we can at least attempt a synchronous flush via keepAlive fetch is not available here.
+    // Best effort: just call flushShopChanges (async, may not complete but usually does).
+    flushShopChanges();
+});
+
+
 // Daily reset is handled by Client-Side Logic (via checkAndPerformShopReset)
 
 
@@ -27,10 +79,8 @@ function renderFoodsShop() {
     const tbody = document.getElementById('foods-table-body');
     tbody.innerHTML = '';
 
-    let visibleIndex = 0;
-    let tempVisibleIndex = 0; // Temporary counter to check index before filtering
-    foodsShopData.forEach((item, index) => {
-        // Look up current name and price from Foods if foodId exists
+    // 1. Prepare data with resolved names and prices
+    let processedData = foodsShopData.map(item => {
         let currentName = item.name; // Default to stored name
         let currentPrice = item.pricePerUnit; // Default to stored price
         let priceWarning = '';
@@ -45,27 +95,50 @@ function renderFoodsShop() {
             }
         }
 
-        tempVisibleIndex++; // Increment before filtering to get the correct index
+        return {
+            ...item,
+            currentName,
+            currentPrice,
+            priceWarning
+        };
+    });
 
-        // Apply search filter - check both name and index number
+    // 2. Sort available items by name alphabetically
+    processedData.sort((a, b) => a.currentName.localeCompare(b.currentName));
+
+    let visibleIndex = 0;
+
+    processedData.forEach((item) => {
+        // Apply search filter - check both name and visible index
+        // Note: We use the *potential* visible index for filtering to keep it intuitive? 
+        // Or just match the name. 
+        // The original code matched 'tempVisibleIndex' which was the index in the raw unsorted array.
+        // In a sorted list, finding by specific index is less common unless it's the visible one.
+        // Let's filter by name mostly.
+
         if (shopSearchFilter) {
             const searchLower = shopSearchFilter.toLowerCase();
-            const nameMatch = currentName.toLowerCase().includes(searchLower);
-            const numberMatch = tempVisibleIndex.toString() === shopSearchFilter.trim();
+            const nameMatch = item.currentName.toLowerCase().includes(searchLower);
+            // Relaxing number match to just name or if we want exact row number match, we can't know it pre-filter easily.
+            // Let's stick to name match for now as it's the primary goal.
+            // If user types '1', checking against index is tricky if we are filtering.
 
-            if (!nameMatch && !numberMatch) {
-                return; // Skip items that don't match search
+            // Let's support checking if '1' matches the simple incrementing loop? No.
+            // Let's string match the name.
+
+            if (!nameMatch) {
+                return; // Skip if name doesn't match
             }
         }
 
         visibleIndex++;
-        const revenue = item.sold * currentPrice;
+        const revenue = item.sold * item.currentPrice;
         const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
-            <tr>
+            <tr data-id="${item.id}">
                 <td class="center"><strong>${visibleIndex}</strong></td>
-                <td><strong>${currentName}${priceWarning}</strong></td>
+                <td><strong>${item.currentName}${item.priceWarning}</strong></td>
                 <td class="center"><span class="sold-badge">${item.sold}</span></td>
                 <td class="center"><small style="color: #7f8c8d;">${lastSoldDate}</small></td>
                 <td class="currency"><strong>${formatCurrency(revenue)}</strong></td>
@@ -90,18 +163,18 @@ function renderGroceryShop() {
     const tbody = document.getElementById('grocery-table-body');
     tbody.innerHTML = '';
 
-    let visibleIndex = 0;
-    let tempVisibleIndex = 0; // Temporary counter to check index before filtering
-    groceryShopData.forEach((item, index) => {
-        tempVisibleIndex++; // Increment before filtering to get the correct index
+    // 1. Create a shallow copy and sort by name alphabetically
+    let sortedGroceryData = [...groceryShopData].sort((a, b) => a.name.localeCompare(b.name));
 
-        // Apply search filter - check both name and index number
+    let visibleIndex = 0;
+
+    sortedGroceryData.forEach((item) => {
+        // Apply search filter - check matches
         if (shopSearchFilter) {
             const searchLower = shopSearchFilter.toLowerCase();
             const nameMatch = item.name.toLowerCase().includes(searchLower);
-            const numberMatch = tempVisibleIndex.toString() === shopSearchFilter.trim();
 
-            if (!nameMatch && !numberMatch) {
+            if (!nameMatch) {
                 return; // Skip items that don't match search
             }
         }
@@ -136,7 +209,7 @@ function renderGroceryShop() {
         const lastSoldDate = item.lastSoldDate ? new Date(item.lastSoldDate.seconds * 1000).toLocaleDateString() : 'N/A';
 
         tbody.innerHTML += `
-            <tr>
+            <tr data-id="${item.id}">
                 <td class="center"><strong>${visibleIndex}</strong></td>
                 <td><strong>${item.name}</strong></td>
                 <td class="center" style="color: ${stockColor}; font-weight: bold;">
@@ -304,7 +377,10 @@ function populateFoodDropdown() {
 
     select.innerHTML = '<option value="">-- Choose Food Item --</option>';
 
-    foodsData.forEach(food => {
+    // Sort foods alphabetically
+    const sortedFoods = [...foodsData].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedFoods.forEach(food => {
         const option = document.createElement('option');
         option.value = food.id;
         option.textContent = `${food.name} - LKR ${food.price}`;
@@ -355,7 +431,10 @@ function populateGroceryIngredientDropdown() {
 
     select.innerHTML = '<option value="">-- Manual Entry --</option>';
 
-    kitchenData.forEach(item => {
+    // Sort kitchen data alphabetically
+    const sortedKitchen = [...kitchenData].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedKitchen.forEach(item => {
         // Filter: Only show items categorized as 'Grocery'
         if (item.category === 'grocery') {
             const option = document.createElement('option');
@@ -479,44 +558,78 @@ function saveShopItem() {
     });
 }
 
-// Update Sold Count (Increment/Decrement)
+// Update Sold Count (Increment/Decrement) — INSTANT local update, buffered Firestore write
 function updateShopSold(collection, id, change) {
     const dataArray = collection === 'foodsShop' ? foodsShopData : groceryShopData;
     const item = dataArray.find(i => i.id === id);
     if (!item) return;
 
-    // Check constraints
-    if (collection === 'groceryShop' && change > 0 && item.sold >= item.stock) {
-        alert('No stock remaining!');
-        return;
+    // Check constraints against local (already-optimistic) sold value
+    if (collection === 'groceryShop' && change > 0) {
+        // For kitchen-linked items, use live kitchen stock (arrived - used)
+        // For unlinked items, fall back to the static stock field minus sold
+        let availableStock;
+        if (item.kitchenId) {
+            const kitchenItem = kitchenData.find(k => k.id === item.kitchenId);
+            if (kitchenItem) {
+                availableStock = parseFloat(kitchenItem.arrived) - parseFloat(kitchenItem.used);
+            } else {
+                availableStock = item.stock - item.sold; // fallback if link is broken
+            }
+        } else {
+            availableStock = item.stock - item.sold;
+        }
+        if (availableStock <= 0) {
+            alert('No stock remaining!');
+            return;
+        }
     }
     if (change < 0 && item.sold <= 0) {
         return; // Cannot go below 0
     }
 
-    // Update in Firestore with timestamp
-    const updateData = {
-        sold: firebase.firestore.FieldValue.increment(change)
-    };
-
-    // Add timestamp when incrementing (selling items)
-    // Add timestamp when incrementing (selling items)
+    // --- 1. Optimistic local update ---
+    item.sold += change;
     if (change > 0) {
-        updateData.lastSoldDate = firebase.firestore.FieldValue.serverTimestamp();
+        item.lastSoldDate = { seconds: Math.floor(Date.now() / 1000) }; // local approximation
     }
 
-    // Update stock (Deduct if change > 0, Restore if change < 0)
-    // Deduct ingredients from kitchen if this item has a linked foodId
+    // Update the badge in the DOM instantly (no full re-render)
+    updateShopSoldBadge(collection, id, item.sold);
+
+    // --- 2. Kitchen deductions (immediate, unchanged behaviour) ---
     if (item.foodId) {
         deductIngredientsFromInventory(item.foodId, change);
     }
-
-    // Deduct from kitchen directly if grocery item linked
     if (item.kitchenId && typeof deductKitchenStock === 'function') {
         deductKitchenStock(item.kitchenId, change);
     }
 
-    db.collection(collection).doc(id).update(updateData).catch(err => console.error("Error updating sold count:", err));
+    // --- 3. Buffer the change for Firestore (accumulate deltas) ---
+    const key = `${collection}/${id}`;
+    if (!pendingShopChanges[key]) {
+        pendingShopChanges[key] = { collection, id, newSold: item.sold, lastSoldDate: change > 0 };
+    } else {
+        pendingShopChanges[key].newSold = item.sold;
+        if (change > 0) pendingShopChanges[key].lastSoldDate = true;
+    }
+
+    // Reset the 1-minute flush timer
+    scheduleShopFlush();
+}
+
+// Update only the sold badge cell for one item — avoids full table re-render
+function updateShopSoldBadge(collection, id, newSold) {
+    const tbodyId = collection === 'foodsShop' ? 'foods-table-body' : 'grocery-table-body';
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    // Each row has data-id set; find the matching row
+    const rows = tbody.querySelectorAll(`tr[data-id="${id}"]`);
+    rows.forEach(row => {
+        const badge = row.querySelector('.sold-badge');
+        if (badge) badge.textContent = newSold;
+    });
 }
 
 // Filter shop items based on search input

@@ -68,9 +68,17 @@ db.collection('foods').onSnapshot((snapshot) => {
     // Also update dropdowns that depend on this
     if (typeof populateBakeryFoodDropdown === 'function') populateBakeryFoodDropdown();
     if (typeof populateFoodDropdown === 'function') populateFoodDropdown();
+    if (typeof populateStaffFoodDropdown === 'function') populateStaffFoodDropdown();
     // Re-render sections that reference food items
     if (typeof renderBakery === 'function') renderBakery();
     if (typeof renderShop === 'function') renderShop();
 }, (error) => { console.error("Error syncing foods menu:", error); });
+
+// 7. Staff Food Data Listener
+let staffFoodData = [];
+db.collection('staffFood').orderBy('date', 'desc').limit(50).onSnapshot((snapshot) => {
+    staffFoodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (typeof renderStaffFood === 'function') renderStaffFood();
+}, (error) => { console.error("Error syncing staff food data:", error); });
 
 console.log("Firestore listeners attached.");

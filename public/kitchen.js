@@ -6,7 +6,10 @@ function renderKitchen() {
 
     const filterCat = document.getElementById('kitchen-category-filter') ? document.getElementById('kitchen-category-filter').value : 'all';
 
-    kitchenData.forEach((item, index) => {
+    // 1. Create a shallow copy and sort by name alphabetically
+    let sortedKitchenData = [...kitchenData].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedKitchenData.forEach((item, index) => {
         // Filter logic: Default to 'food' if category is missing
         const itemCat = item.category || 'food';
         if (filterCat !== 'all' && itemCat !== filterCat) return;
@@ -44,10 +47,11 @@ function renderKitchen() {
                     <br><small style="color: #7f8c8d;">${lastUsedDate}</small>
                 </td>
                 <td class="center">
-                    <input type="number" value="${count}" min="0.01" step="any" 
-                           onchange="updateIngredientCount('${item.id}', this.value)"
-                           style="width: 60px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 4px;"
-                           title="Quantity to add/remove per click">
+                    <button class="btn" onclick="openEditCountModal('${item.id}', '${count}', '${escapeHtml(item.name)}')" 
+                            style="background: #f39c12; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 0.9em;"
+                            title="Click to Adjust Count">
+                        ${count}
+                    </button>
                 </td>
                 <td class="center">
                     <strong class="available-qty">${available.toFixed(2)} ${arrivedUnit}</strong>
@@ -75,7 +79,10 @@ function updateIngredientDropdown() {
 
     select.innerHTML = '<option value="">-- Choose Ingredient --</option>';
 
-    kitchenData.forEach(item => {
+    // Sort kitchen data alphabetically
+    const sortedKitchen = [...kitchenData].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedKitchen.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
         option.textContent = `${item.name} (Available: ${(parseFloat(item.arrived) - parseFloat(item.used)).toFixed(2)} ${item.arrivedUnit})`;
@@ -288,7 +295,45 @@ function updateKitchenUsage(id, change) {
     db.collection('kitchen').doc(id).update(updateData);
 }
 
-// Update ingredient count value
+// Open Edit Count Modal
+function openEditCountModal(id, currentCount, name) {
+    document.getElementById('edit-count-id').value = id;
+    document.getElementById('edit-count-name').textContent = name;
+    document.getElementById('edit-count-value').value = currentCount;
+
+    document.getElementById('editKitchenCountModal').style.display = 'flex';
+}
+
+// Close Edit Count Modal
+function closeEditCountModal() {
+    document.getElementById('editKitchenCountModal').style.display = 'none';
+}
+
+// Adjust count in modal with +/- buttons
+function adjustEditCount(change) {
+    const input = document.getElementById('edit-count-value');
+    let currentValue = parseFloat(input.value) || 0;
+
+    currentValue += change;
+
+    if (currentValue <= 0) currentValue = 1; // Minimum 1 for ease, or 0.01
+
+    // Round to avoid float errors
+    currentValue = Math.round(currentValue * 100) / 100;
+
+    input.value = currentValue;
+}
+
+// Save Count from Modal
+function saveIngredientCount() {
+    const id = document.getElementById('edit-count-id').value;
+    const newCount = document.getElementById('edit-count-value').value;
+
+    updateIngredientCount(id, newCount);
+    closeEditCountModal();
+}
+
+// Update ingredient count value (Modified to handle logic)
 function updateIngredientCount(id, newCount) {
     const count = parseFloat(newCount) || 1;
 
@@ -303,6 +348,7 @@ function updateIngredientCount(id, newCount) {
         count: count
     }).then(() => {
         console.log(`Updated count to ${count} for ingredient ${id}`);
+        showSuccessMessage(`Count updated to ${count}`);
     }).catch(err => {
         console.error('Error updating count:', err);
         alert('Failed to update count');

@@ -23,6 +23,7 @@ function showSection(sectionId) {
         'shop': 'Shop Overview',
         'kitchen': 'Kitchen Overview',
         'foods': 'Foods Overview',
+        'staff-food': 'Staff Food Management',
 
         'employees': 'Employee Management'
     };
@@ -34,6 +35,7 @@ function showSection(sectionId) {
     if (sectionId === 'kitchen') renderKitchen();
 
     if (sectionId === 'foods') renderFoods();
+    if (sectionId === 'staff-food') renderStaffFood();
     if (sectionId === 'employees') renderEmployees();
 
     // Close sidebar on mobile after selection

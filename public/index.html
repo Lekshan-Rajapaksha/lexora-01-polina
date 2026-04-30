@@ -58,6 +58,10 @@
         <span class="nav-icon">🍽️</span>
         <span class="nav-text">ආහාර</span>
       </button>
+      <button class="nav-btn" onclick="showSection('staff-food')">
+        <span class="nav-icon">🍛</span>
+        <span class="nav-text">Staff Food</span>
+      </button>
       <button class="nav-btn" onclick="showSection('checks')">
         <span class="nav-icon">📝</span>
         <span class="nav-text">චෙක් විස්තර</span>
@@ -445,6 +449,39 @@
       </div>
     </div>
 
+    <!-- Edit Kitchen Count Modal -->
+    <div id="editKitchenCountModal" class="modal">
+      <div class="modal-content modal-kitchen" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3>🔢 Adjust Use Count</h3>
+          <button class="modal-close" onclick="closeEditCountModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-count-id">
+          <div class="form-group" style="text-align: center;">
+            <label style="font-size: 1.1em; margin-bottom: 15px; display: block;">Set Usage Amount for <strong
+                id="edit-count-name" style="color: #2c3e50;"></strong></label>
+
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 10px;">
+              <button type="button" class="btn" onclick="adjustEditCount(-1)"
+                style="background: #e74c3c; color: white; width: 45px; height: 45px; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2); border: none; cursor: pointer;">-</button>
+
+              <input type="number" id="edit-count-value" step="any" min="0.01"
+                style="width: 120px; text-align: center; font-size: 1.8rem; padding: 10px; border: 2px solid #3498db; border-radius: 10px; font-weight: bold; color: #34495e;">
+
+              <button type="button" class="btn" onclick="adjustEditCount(1)"
+                style="background: #27ae60; color: white; width: 45px; height: 45px; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); border: none; cursor: pointer;">+</button>
+            </div>
+            <small style="color: #7f8c8d;">Click buttons to adjust by 1 or type exact amount</small>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" onclick="closeEditCountModal()">Cancel</button>
+          <button class="btn btn-save" onclick="saveIngredientCount()">Save Count</button>
+        </div>
+      </div>
+    </div>
+
     <div id="foods" class="section">
       <div style="margin-bottom: 20px;">
         <button class="btn btn-primary" onclick="openAddModal()"
@@ -547,6 +584,70 @@
       </div>
     </div>
 
+    <!-- Staff Food Section -->
+    <div id="staff-food" class="section">
+      <div class="shop-header" style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <h2 style="color: white; margin: 0;">🍛 Staff Food</h2>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="openAddStaffFoodModal()" style="background: white; color: #d35400;">
+              ➕ Add Staff Food
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Food Name</th>
+              <th>Employee Name</th>
+              <th>Quantity</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="staff-food-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Add Staff Food Modal -->
+    <div id="addStaffFoodModal" class="modal">
+      <div class="modal-content modal-shop">
+        <div class="modal-header">
+          <h3 id="staff-food-modal-title">🍛 Add Staff Food</h3>
+          <button class="modal-close" onclick="closeAddStaffFoodModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Food Item *</label>
+            <select id="staff-food-select">
+              <option value="">-- Choose Food Item --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Select Employee *</label>
+            <select id="staff-employee-select">
+              <option value="">-- Choose Employee --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" id="staff-food-qty" placeholder="e.g., 1" min="1" value="1">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" onclick="closeAddStaffFoodModal()">Cancel</button>
+          <button class="btn btn-save" onclick="saveStaffFood()">Save</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Check Details Section -->
     <div id="checks" class="section">
       <div class="shop-header" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);">
@@ -576,42 +677,45 @@
         </table>
       </div>
     </div>
+  </div>
 
-    <!-- Add Employee Modal -->
-    <div id="addEmployeeModal" class="modal">
-      <div class="modal-content modal-shop">
-        <div class="modal-header">
-          <h3 id="employee-modal-title">👨‍🍳 Add New Employee</h3>
-          <button class="modal-close" onclick="closeAddEmployeeModal()">&times;</button>
+
+
+  <!-- Add Employee Modal -->
+  <div id="addEmployeeModal" class="modal">
+    <div class="modal-content modal-shop">
+      <div class="modal-header">
+        <h3 id="employee-modal-title">👨‍🍳 Add New Employee</h3>
+        <button class="modal-close" onclick="closeAddEmployeeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="employee-id">
+        <div class="form-group">
+          <label>නම *</label>
+          <input type="text" id="employee-name" placeholder="e.g., John Doe">
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="employee-id">
-          <div class="form-group">
-            <label>නම *</label>
-            <input type="text" id="employee-name" placeholder="e.g., John Doe">
-          </div>
-          <div class="form-group">
-            <label>තනතුර *</label>
-            <input type="text" id="employee-position" placeholder="e.g., Chef, Waiter">
-          </div>
-          <div class="form-group">
-            <label>වැටුප් වර්ගය *</label>
-            <select id="employee-salary-type">
-              <option value="monthly">මසිකව</option>
-              <option value="daily">දිනපතා</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>මුදල (LKR) *</label>
-            <input type="number" id="employee-amount" placeholder="e.g., 50000 or 1500" min="0">
-          </div>
+        <div class="form-group">
+          <label>තනතුර *</label>
+          <input type="text" id="employee-position" placeholder="e.g., Chef, Waiter">
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-cancel" onclick="closeAddEmployeeModal()">Cancel</button>
-          <button class="btn btn-save" onclick="saveEmployee()">Save Employee</button>
+        <div class="form-group">
+          <label>වැටුප් වර්ගය *</label>
+          <select id="employee-salary-type">
+            <option value="monthly">මසිකව</option>
+            <option value="daily">දිනපතා</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>මුදල (LKR) *</label>
+          <input type="number" id="employee-amount" placeholder="e.g., 50000 or 1500" min="0">
         </div>
       </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeAddEmployeeModal()">Cancel</button>
+        <button class="btn btn-save" onclick="saveEmployee()">Save Employee</button>
+      </div>
     </div>
+  </div>
   </div>
 
 
@@ -737,6 +841,7 @@
   <script src="foods.js"></script>
   <script src="payments.js"></script>
   <script src="employees.js"></script>
+  <script src="staff_food.js"></script>
   <script src="checks.js"></script>
   <script src="navigation.js"></script>
 </body>

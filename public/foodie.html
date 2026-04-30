@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Foodie POS (Firebase)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222536;--surface3:#2a2e44;
+  --accent:#f59e0b;--accent2:#fbbf24;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;
+  --text:#f1f5f9;--muted:#94a3b8;--border:#2d3148;
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+input,select,textarea{font-family:inherit;outline:none}
+/* HEADER */
+.header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:60px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-btns{display:flex;gap:8px; align-items:center;}
+.nav-btn{padding:8px 18px;border-radius:8px;font-weight:600;font-size:13px;transition:.2s}
+.nav-btn.active{background:var(--accent);color:#000}
+.nav-btn:not(.active){background:var(--surface2);color:var(--muted)}
+.nav-btn:not(.active):hover{background:var(--surface3);color:var(--text)}
+.logout-btn{background:none; color:var(--red); font-weight:600; font-size:13px; margin-left:16px;}
+.logout-btn:hover{text-decoration:underline;}
+/* VIEWS */
+.view{display:none}
+.view.active{display:flex;flex-direction:column}
+/* POS VIEW */
+#pos-view{flex-direction:row;height:calc(100vh - 60px)}
+.pos-left{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.pos-right{width:340px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column}
+/* CATEGORY TABS */
+.cat-tabs{display:flex;gap:8px;padding:16px;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;white-space:nowrap;transition:.2s;border:2px solid transparent}
+.cat-tab.active{color:#000;border-color:transparent}
+.cat-tab:not(.active){background:var(--surface2);color:var(--muted);border-color:var(--border)}
+.cat-tab:not(.active):hover{background:var(--surface3);color:var(--text)}
+/* SEARCH */
+.search-bar{padding:12px 16px;border-bottom:1px solid var(--border)}
+.search-input{width:100%;padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px}
+.search-input::placeholder{color:var(--muted)}
+/* ITEMS GRID */
+.items-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px;align-content:start}
+.item-card{background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:.2s;position:relative}
+.item-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px rgba(245,158,11,.15)}
+.item-card.low-stock{border-color:var(--red)}
+.item-emoji{font-size:32px;margin-bottom:8px;display:block}
+.item-name{font-weight:600;font-size:14px;margin-bottom:4px;line-height:1.3}
+.item-price{color:var(--accent);font-weight:700;font-size:15px}
+.item-stock{font-size:11px;color:var(--muted);margin-top:4px}
+.item-stock.low{color:var(--red)}
+.out-badge{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+/* BILL PANEL */
+.bill-header{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.bill-title{font-size:16px;font-weight:700}
+.bill-clear{color:var(--red);font-size:12px;font-weight:600;background:none;padding:4px 10px;border-radius:6px;border:1px solid var(--red);transition:.2s}
+.bill-clear:hover{background:var(--red);color:#fff}
+.bill-items{flex:1;overflow-y:auto;padding:12px}
+.bill-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:8px}
+.bill-empty span{font-size:40px}
+.bill-item{background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.bill-item-name{flex:1;font-size:13px;font-weight:500}
+.bill-item-price{font-size:12px;color:var(--muted)}
+.qty-controls{display:flex;align-items:center;gap:6px}
+.qty-btn{width:26px;height:26px;border-radius:6px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:.2s}
+.qty-btn.minus{background:var(--surface3);color:var(--red)}
+.qty-btn.plus{background:var(--accent);color:#000}
+.qty-btn:hover{opacity:.8}
+.qty-val{font-weight:700;font-size:14px;min-width:20px;text-align:center}
+.bill-footer{padding:16px;border-top:1px solid var(--border)}
+.bill-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:var(--muted)}
+.bill-total{display:flex;justify-content:space-between;font-size:17px;font-weight:800;color:var(--text);margin:10px 0 14px}
+.checkout-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;font-weight:800;font-size:15px;border-radius:10px;transition:.2s}
+.checkout-btn:hover{opacity:.9;transform:translateY(-1px)}
+.checkout-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.print-btn{width:100%;padding:10px;background:var(--surface2);color:var(--text);font-weight:600;font-size:13px;border-radius:8px;margin-top:8px;border:1px solid var(--border);transition:.2s}
+.print-btn:hover{background:var(--surface3)}
+/* SETTINGS VIEW */
+#settings-view{height:calc(100vh - 60px);overflow-y:auto;padding:24px}
+.settings-grid{display:grid;grid-template-columns:1fr;gap:20px;max-width:1100px;margin:0 auto}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.settings-card h2{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-input{min-width:100px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px}
+.form-select{padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px}
+.list-area{max-height:500px;overflow-y:auto}
+.list-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.list-item-name{flex:1;font-size:13px;font-weight:500}
+.list-item-badge{font-size:11px;padding:4px 8px;border-radius:10px;background:var(--surface3);color:var(--muted)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;animation:slideIn .3s ease;box-shadow:var(--shadow)}
+.toast.success{background:var(--green);color:#fff}
+.toast.error{background:var(--red);color:#fff}
+.toast.info{background:var(--blue);color:#fff}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* MOBILE STYLES */
+@media (max-width: 768px) {
+  .header { padding: 0 16px; }
+  .logo { font-size: 18px; }
+  .nav-btn { padding: 6px 12px; font-size: 12px; }
+  #pos-view { flex-direction: column; }
+  .pos-left { height: 55%; flex: none; min-height: 55%; }
+  .pos-right { width: 100%; height: 45%; border-left: none; border-top: 2px solid var(--border); }
+  .items-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); padding: 12px; gap: 8px; }
+  .item-card { padding: 10px; }
+  .item-emoji { font-size: 28px; margin-bottom: 6px; }
+  .item-name { font-size: 13px; }
+  .cat-tab { padding: 6px 14px; font-size: 12px; }
+  .settings-grid { grid-template-columns: 1fr; gap: 16px; }
+  #settings-view { padding: 16px; }
+}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.empty-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:var(--muted);gap:8px;font-size:14px}
+.settings-page-title{font-size:22px;font-weight:800;margin-bottom:20px;max-width:1100px;margin-left:auto;margin-right:auto}
+/* LOGIN OVERLAY */
+#login-overlay {position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;}
+#login-overlay.active {display:flex;}
+.login-box {background:var(--surface);padding:32px;border-radius:16px;border:1px solid var(--border);width:100%;max-width:400px;text-align:center;box-shadow:var(--shadow);}
+.login-box h2 {font-size:24px;font-weight:800;margin-bottom:24px;}
+.login-input {width:100%;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;margin-bottom:16px;}
+.login-btn {width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;font-weight:800;font-size:15px;border-radius:8px;transition:.2s;}
+.login-btn:hover {opacity:.9;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay" class="active">
+  <div class="login-box">
+    <div class="logo" style="margin-bottom: 24px;">🍽️ Foodie POS</div>
+    <h2>Sign In</h2>
+    <form id="pos-login-form">
+      <input type="email" id="login-email" class="login-input" placeholder="Email" required />
+      <input type="password" id="login-password" class="login-input" placeholder="Password" required />
+      <button type="submit" class="login-btn" id="login-submit-btn">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">🍽️ Foodie POS</div>
+  <div class="nav-btns">
+    <button class="nav-btn active" onclick="showView('pos')">🛒 POS</button>
+    <button class="nav-btn" onclick="showView('settings')">📋 Inventory Check</button>
+    <button class="nav-btn" onclick="downloadDailyReport()" style="background:var(--blue);color:#fff">📄 Daily Report</button>
+    <button class="logout-btn" onclick="posLogout()">Logout</button>
+  </div>
+</header>
+
+<!-- POS VIEW -->
+<div id="pos-view" class="view active">
+  <div class="pos-left">
+    <div class="cat-tabs" id="cat-tabs">
+      <!-- Tabs rendered by JS -->
+    </div>
+    <div class="search-bar">
+      <input class="search-input" id="search-input" placeholder="🔍 Search items..." oninput="renderItems()"/>
+    </div>
+    <div class="items-grid" id="items-grid"></div>
+  </div>
+  <div class="pos-right">
+    <div class="bill-header">
+      <div class="bill-title">📋 Current Bill</div>
+      <button class="bill-clear" onclick="clearBill()">✕ Clear</button>
+    </div>
+    <div class="bill-items" id="bill-items">
+      <div class="bill-empty"><span>🧾</span><span>No items added yet</span></div>
+    </div>
+    <div class="bill-footer">
+      <div class="bill-row" style="display:none"><span>Subtotal</span><span id="subtotal">Rs. 0.00</span></div>
+      <div class="bill-total" style="border-top:none; padding-top:0;"><span>Total</span><span id="total">Rs. 0.00</span></div>
+      <button class="checkout-btn" id="checkout-btn" onclick="checkout()" disabled>✅ Place Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS VIEW (Manage Categories & Items) -->
+<div id="settings-view" class="view">
+  <div class="settings-page-title">⚙️ Manage POS Inventory</div>
+  <div class="settings-grid">
+    <div class="settings-card">
+      <h2>📁 Categories</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Foods Menu and Grocery Shop are synced with the main dashboard and cannot be deleted here. Add custom POS categories below.</p>
+      <form style="display:flex;gap:8px;margin-bottom:12px" onsubmit="event.preventDefault(); addCategory();">
+        <input class="form-input" id="new-cat-emoji" placeholder="Emoji" style="width:70px" required/>
+        <input class="form-input" id="new-cat-name" placeholder="Category Name" style="flex:1" required/>
+        <input class="form-input" id="new-cat-color" type="color" value="#8b5cf6" style="width:50px;padding:0;height:38px;cursor:pointer" title="Border Color"/>
+        <button type="submit" class="nav-btn active">Add</button>
+      </form>
+      <div class="list-area" id="settings-cat-list"></div>
+    </div>
+    <div class="settings-card">
+      <h2>🛒 Assign Existing Items</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Move items from Foods Menu or Grocery Shop into your custom categories.</p>
+      <form style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" onsubmit="event.preventDefault(); assignItem();">
+        <select class="form-select" id="assign-item-id" style="flex:1" required>
+            <!-- Populated by JS -->
+        </select>
+        <select class="form-select" id="assign-item-cat" style="width:160px" required>
+            <!-- Populated by JS -->
+        </select>
+        <button type="submit" class="nav-btn active">Assign</button>
+      </form>
+      <div class="list-area" id="settings-items-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA -->
+<div class="print-area" id="print-area"></div>
+
+<script>
+// --- FIREBASE INITIALIZATION ---
+const firebaseConfig = {
+    apiKey: "AIzaSyCon896taIWlaY-6_bElPYQ5hIiWxhLhVY",
+    authDomain: "polinaresturant.firebaseapp.com",
+    projectId: "polinaresturant",
+    storageBucket: "polinaresturant.firebasestorage.app",
+    messagingSenderId: "515907915894",
+    appId: "1:515907915894:web:79ac25e65ae005f5000f57",
+    measurementId: "G-0LPWSR59JH"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// ====== STATE ======
+let currentCat='all';
+let bill=[];
+
+let foodsData = [];
+let foodsShopData = [];
+let groceryShopData = [];
+let kitchenData = [];
+let posCategoriesData = [];
+let posItemsData = [];
+
+// Computed items array for POS
+let allItems = []; 
+let unsubscribes = []; // To keep track of listeners
+
+// ====== AUTHENTICATION ======
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // User logged in
+        document.getElementById('login-overlay').classList.remove('active');
+        setupFirestoreListeners();
+    } else {
+        // Not logged in
+        document.getElementById('login-overlay').classList.add('active');
+        cleanupFirestoreListeners();
+    }
+});
+
+document.getElementById('pos-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-submit-btn');
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-password').value;
+    
+    btn.textContent = "Logging in...";
+    btn.disabled = true;
+    
+    try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        // Toast is not shown here because onAuthStateChanged handles UI, 
+        // but we can show a welcome toast after a small delay.
+        setTimeout(() => toast('Logged in successfully', 'success'), 500);
+    } catch (err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.textContent = "Login";
+        btn.disabled = false;
+    }
+});
+
+function posLogout() {
+    auth.signOut().then(() => {
+        toast('Logged out', 'info');
+    });
+}
+
+function cleanupFirestoreListeners() {
+    unsubscribes.forEach(unsub => unsub());
+    unsubscribes = [];
+    foodsData = [];
+    foodsShopData = [];
+    groceryShopData = [];
+    kitchenData = [];
+    posCategoriesData = [];
+    posItemsData = [];
+    allItems = [];
+    renderTabs();
+    renderItems();
+}
+
+// ====== UTILS ======
+function toast(msg,type='success'){
+  const el=document.createElement('div');
+  el.className='toast '+type;el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2500);
+}
+function fmtPrice(n){return 'Rs. '+parseFloat(n).toFixed(2)}
+
+// ====== FIRESTORE LISTENERS (Protected) ======
+function setupFirestoreListeners() {
+    unsubscribes.push(
+        db.collection('foods').onSnapshot(snap => {
+            foodsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            computeAllItems();
+        }, err => console.error("Foods Error:", err))
+    );
+    unsubscribes.push(
+        db.collection('foodsShop').onSnapshot(snap => {
+            foodsShopData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            computeAllItems();
+        }, err => console.error("Foods Shop Error:", err))
+    );
+    unsubscribes.push(
+        db.collection('groceryShop').onSnapshot(snap => {
+            groceryShopData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            computeAllItems();
+        }, err => console.error("Grocery Shop Error:", err))
+    );
+    unsubscribes.push(
+        db.collection('kitchen').onSnapshot(snap => {
+            kitchenData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            computeAllItems();
+        }, err => console.error("Kitchen Error:", err))
+    );
+    unsubscribes.push(
+        db.collection('posCategories').onSnapshot(snap => {
+            posCategoriesData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderTabs();
+            renderItems();
+            if(document.getElementById('settings-view').classList.contains('active')){
+                renderSettings();
+            }
+        }, err => console.error("posCategories Error:", err))
+    );
+    unsubscribes.push(
+        db.collection('posItems').onSnapshot(snap => {
+            posItemsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            computeAllItems();
+        }, err => console.error("posItems Error:", err))
+    );
+}
+
+// ====== COMPUTE COMBINED ITEMS ======
+function computeAllItems() {
+    let newItems = [];
+
+    // 1. Process Foods
+    foodsShopData.forEach(item => {
+        let currentName = item.name;
+        let currentPrice = item.pricePerUnit;
+        
+        if (item.foodId) {
+            const food = foodsData.find(f => f.id === item.foodId);
+            if (food) {
+                currentName = food.name;
+                currentPrice = food.price;
+            }
+        }
+        
+        newItems.push({
+            id: item.id,
+            category: item.posCategoryId || 'foods',
+            name: currentName,
+            price: currentPrice,
+            stock: null, // Foods don't typically have limited stock in this POS context
+            sold: item.sold || 0,
+            emoji: '🍽️',
+            kitchenId: null,
+            collectionRef: 'foodsShop',
+            isCustomCategory: !!item.posCategoryId
+        });
+    });
+
+    // 2. Process Groceries
+    groceryShopData.forEach(item => {
+        let actualAvailable = item.stock - (item.sold || 0);
+        let unit = '';
+        
+        let kitchenItem = null;
+        if (item.kitchenId) {
+            kitchenItem = kitchenData.find(k => k.id === item.kitchenId);
+        }
+        if (!kitchenItem) {
+            kitchenItem = kitchenData.find(k => k.name.trim().toLowerCase() === item.name.trim().toLowerCase() && k.category === 'grocery');
+        }
+
+        if (kitchenItem) {
+            actualAvailable = Math.floor(parseFloat(kitchenItem.arrived || 0) - parseFloat(kitchenItem.used || 0));
+            unit = kitchenItem.arrivedUnit || '';
+        }
+
+        newItems.push({
+            id: item.id,
+            category: item.posCategoryId || 'grocery',
+            name: item.name,
+            price: item.pricePerUnit || 0,
+            stock: actualAvailable, // Live calculated stock
+            sold: item.sold || 0,
+            emoji: '🛍️',
+            unit: unit,
+            kitchenId: kitchenItem ? kitchenItem.id : null,
+            collectionRef: 'groceryShop',
+            isCustomCategory: !!item.posCategoryId
+        });
+    });
+
+    // 3. Process Custom POS Items
+    posItemsData.forEach(item => {
+        newItems.push({
+            id: item.id,
+            category: item.categoryId,
+            name: item.name,
+            price: item.price,
+            stock: item.stock !== undefined ? item.stock : null,
+            sold: item.sold || 0,
+            emoji: item.emoji,
+            kitchenId: null,
+            collectionRef: 'posItems'
+        });
+    });
+
+    // Sort alphabetically
+    newItems.sort((a,b) => a.name.localeCompare(b.name));
+    allItems = newItems;
+    
+    // Re-render views if they are active
+    renderItems();
+    if(document.getElementById('settings-view').classList.contains('active')){
+      renderInventory();
+    }
+}
+
+// ====== VIEW SWITCH ======
+function showView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(v+'-view').classList.add('active');
+  document.querySelectorAll('.nav-btn')[v==='pos'?0:1].classList.add('active');
+  if(v==='pos'){renderTabs(); renderItems();}
+  if(v==='settings'){renderSettings();}
+}
+
+// ====== CATEGORY TABS ======
+function filterCat(id){
+    currentCat = id;
+    renderTabs();
+    renderItems();
+}
+
+function renderTabs() {
+    const tabsContainer = document.getElementById('cat-tabs');
+    if(!tabsContainer) return;
+    
+    let tabsHtml = `<button class="cat-tab ${currentCat === 'all' ? 'active' : ''}" style="${currentCat === 'all' ? 'background:#f59e0b;color:#000' : ''}" onclick="filterCat('all')">✨ All</button>`;
+    
+    // Custom Categories
+    posCategoriesData.forEach(c => {
+        tabsHtml += `<button class="cat-tab ${currentCat === c.id ? 'active' : ''}" onclick="filterCat('${c.id}')">${c.emoji} ${c.name}</button>`;
+    });
+
+    tabsContainer.innerHTML = tabsHtml;
+}
+
+// ====== CATEGORY CARDS / ITEMS GRID ======
+function renderItems(){
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const grid = document.getElementById('items-grid');
+  
+  if (search.trim() !== '') {
+    // If searching, show matching items regardless of category screen
+    let filtered = allItems.filter(i => i.name.toLowerCase().includes(search));
+    renderItemCards(filtered, grid);
+    return;
+  }
+
+  if (currentCat === 'all') {
+      // 1. Show Categories First
+      const categoriesList = [];
+      
+      // Add custom categories to grid
+      posCategoriesData.forEach(c => {
+          categoriesList.push({ id: c.id, name: c.name, emoji: c.emoji, color: c.color || '#8b5cf6', desc: 'Custom POS Category' });
+      });
+      
+      grid.innerHTML = categoriesList.map(c => `
+        <div class="item-card" style="border-color:${c.color}; text-align:center; padding: 30px 14px; display:flex; flex-direction:column; justify-content:center; align-items:center;" onclick="filterCat('${c.id}')">
+            <span class="item-emoji" style="font-size:54px; margin-bottom:16px; margin-left:auto; margin-right:auto;">${c.emoji}</span>
+            <div class="item-name" style="font-size:18px; font-weight:800;">${c.name}</div>
+            <div class="item-stock" style="margin-top:8px; font-size:13px;">${c.desc}</div>
+        </div>
+      `).join('');
+  } else {
+      // 2. Show items for the specific category clicked
+      let filtered = allItems.filter(i => i.category === currentCat);
+      
+      let html = `<div style="grid-column: 1/-1; margin-bottom: 8px;">
+                    <button class="nav-btn active" style="padding: 10px 20px; font-size: 14px; background:var(--surface3); color:white;" onclick="filterCat('all')">⬅️ Back to Categories</button>
+                  </div>`;
+                  
+      grid.innerHTML = html;
+      renderItemCards(filtered, grid, true);
+  }
+}
+
+function renderItemCards(filtered, grid, append = false) {
+  if(!filtered.length){
+    const emptyHtml = `<div class="empty-state" style="${append ? 'grid-column: 1/-1;' : ''}"><span style="font-size:40px">🤷</span><span>No items found</span></div>`;
+    if (append) grid.innerHTML += emptyHtml;
+    else grid.innerHTML = emptyHtml;
+    return;
+  }
+  
+  const cardsHtml = filtered.map(item=>{
+    const isGrocery = item.category === 'grocery';
+    const outOfStock = isGrocery && item.stock <= 0;
+    const lowStock = isGrocery && item.stock > 0 && item.stock <= 5;
+    
+    return `<div class="item-card${lowStock?' low-stock':''}" onclick="${outOfStock?'':'addToBill(\''+item.id+'\')'}">
+      ${outOfStock?'<span class="out-badge">OUT</span>':''}
+      <span class="item-emoji">${item.emoji}</span>
+      <div class="item-name">${item.name}</div>
+      <div class="item-price">${fmtPrice(item.price)}</div>
+      ${isGrocery ? `<div class="item-stock${lowStock?' low':''}">Stock: ${item.stock} ${item.unit||''}</div>` : `<div class="item-stock">Available</div>`}
+    </div>`;
+  }).join('');
+  
+  if (append) grid.innerHTML += cardsHtml;
+  else grid.innerHTML = cardsHtml;
+}
+
+// ====== BILL ======
+function addToBill(itemId){
+  const item=allItems.find(i=>i.id===itemId);
+  if(!item)return;
+  
+  if(item.category === 'grocery' && item.stock <= 0){
+      toast('Out of stock!','error');
+      return;
+  }
+
+  const existing=bill.find(b=>b.id===itemId);
+  if(existing){
+    if(item.category === 'grocery' && existing.qty >= item.stock){
+        toast('No more stock available!','error');
+        return;
+    }
+    existing.qty++;
+  }else{
+    bill.push({id:itemId, name:item.name, emoji:item.emoji, price:item.price, qty:1, category: item.category});
+  }
+  renderBill();
+  toast(`${item.emoji} ${item.name} added`,'info');
+}
+
+function changeQty(itemId,delta){
+  const idx=bill.findIndex(b=>b.id===itemId);
+  if(idx<0)return;
+  const item=allItems.find(i=>i.id===itemId);
+  bill[idx].qty+=delta;
+  
+  if(bill[idx].qty<=0){
+      bill.splice(idx,1);
+  }
+  else if(item && item.category === 'grocery' && bill[idx].qty > item.stock){
+      bill[idx].qty = item.stock;
+      toast('Max stock reached','error');
+  }
+  renderBill();
+}
+
+function clearBill(){bill=[];renderBill();}
+
+function renderBill(){
+  const container=document.getElementById('bill-items');
+  if(!bill.length){
+    container.innerHTML=`<div class="bill-empty"><span>🧾</span><span>No items added yet</span></div>`;
+    document.getElementById('checkout-btn').disabled=true;
+    updateTotals(0);return;
+  }
+  container.innerHTML=bill.map(b=>`
+    <div class="bill-item">
+      <span style="font-size:20px">${b.emoji||'🍽️'}</span>
+      <div style="flex:1;overflow:hidden">
+        <div class="bill-item-name">${b.name}</div>
+        <div class="bill-item-price">${fmtPrice(b.price)} × ${b.qty}</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn minus" onclick="changeQty('${b.id}',-1)">−</button>
+        <span class="qty-val">${b.qty}</span>
+        <button class="qty-btn plus" onclick="changeQty('${b.id}',1)">+</button>
+      </div>
+    </div>`).join('');
+  
+  const sub=bill.reduce((s,b)=>s+b.price*b.qty,0);
+  updateTotals(sub);
+  document.getElementById('checkout-btn').disabled=false;
+}
+
+function updateTotals(sub){
+  document.getElementById('subtotal').textContent=fmtPrice(sub);
+  document.getElementById('total').textContent=fmtPrice(sub);
+}
+
+// ====== CHECKOUT & FIRESTORE STOCK DEDUCTION ======
+async function checkout(){
+  if(!bill.length)return;
+  
+  const checkoutBtn = document.getElementById('checkout-btn');
+  checkoutBtn.disabled = true;
+  checkoutBtn.textContent = 'Processing...';
+
+  // Check valid stock locally first
+  for(const b of bill){
+    const item = allItems.find(i=>i.id===b.id);
+    if(item && item.category === 'grocery' && item.stock < b.qty){
+        toast(`Not enough stock for ${b.name}`,'error');
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = '✅ Place Order & Print';
+        return;
+    }
+  }
+
+  // Use Firestore Batch for atomic updates
+  const batch = db.batch();
+
+  try {
+      bill.forEach(b => {
+          const item = allItems.find(i=>i.id===b.id);
+          if(!item) return;
+
+          // 1. Update the sold count in the shop collection
+          const shopRef = db.collection(item.collectionRef).doc(item.id);
+          batch.update(shopRef, { 
+              sold: firebase.firestore.FieldValue.increment(b.qty),
+              lastSoldDate: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          // 2. If grocery, deduct from actual kitchen inventory
+          if (item.category === 'grocery' && item.kitchenId) {
+              const kitchenRef = db.collection('kitchen').doc(item.kitchenId);
+              batch.update(kitchenRef, {
+                  used: firebase.firestore.FieldValue.increment(b.qty)
+              });
+          }
+      });
+
+      // Execute batch
+      await batch.commit();
+
+      toast('✅ Order placed & Stock Deducted!','success');
+      bill=[];
+      renderBill();
+      
+  } catch(error) {
+      console.error("Error during checkout:", error);
+      toast('Checkout failed: ' + error.message, 'error');
+  } finally {
+      checkoutBtn.disabled = bill.length === 0;
+      checkoutBtn.textContent = '✅ Place Order';
+  }
+}
+
+// ====== SETTINGS PAGE LOGIC ======
+function renderSettings() {
+    // 1. Render Categories
+    const catListHtml = posCategoriesData.map(c => `
+        <div class="list-item">
+            <span style="font-size:20px">${c.emoji}</span>
+            <span class="list-item-name" style="font-weight:700">${c.name}</span>
+            <button class="nav-btn" style="padding: 4px 10px; font-size: 11px; background: var(--red); color: white;" onclick="deleteCategory('${c.id}')">Delete</button>
+        </div>
+    `).join('') || '<div style="color:var(--muted); font-size:13px; padding:10px">No custom categories yet.</div>';
+    document.getElementById('settings-cat-list').innerHTML = catListHtml;
+
+    // 2. Populate Dropdowns for Assigning Items
+    const itemDropdown = document.getElementById('assign-item-id');
+    const assignableItems = allItems.filter(i => i.collectionRef !== 'posItems');
+    itemDropdown.innerHTML = `<option value="">Select Item...</option>` + 
+        assignableItems.map(i => `<option value="${i.id}">${i.emoji||''} ${i.name} (${i.collectionRef === 'foodsShop' ? 'Food' : 'Grocery'})</option>`).join('');
+
+    const catDropdown = document.getElementById('assign-item-cat');
+    catDropdown.innerHTML = `<option value="">Select Category</option>` + 
+        posCategoriesData.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+
+    // 3. Render Items Currently Assigned to Custom Categories
+    const assignedItems = allItems.filter(i => i.isCustomCategory || i.collectionRef === 'posItems');
+    const itemsListHtml = assignedItems.map(i => {
+        const isLegacy = i.collectionRef === 'posItems';
+        const cat = posCategoriesData.find(c => c.id === i.category);
+        const catName = cat ? cat.name : 'Unknown';
+
+        return `
+        <div class="list-item">
+            <span style="font-size:20px">${i.emoji||'🍽️'}</span>
+            <span class="list-item-name">${i.name}</span>
+            <span class="list-item-badge">${catName}</span>
+            <span class="list-item-badge" style="background:var(--surface3)">${fmtPrice(i.price)}</span>
+            <button class="nav-btn" style="padding: 4px 10px; font-size: 11px; background: var(--red); color: white;" onclick="${isLegacy ? `deleteLegacyItem('${i.id}')` : `unassignItem('${i.id}', '${i.collectionRef}')`}">${isLegacy ? 'Delete' : 'Unassign'}</button>
+        </div>
+        `;
+    }).join('') || '<div style="color:var(--muted); font-size:13px; padding:10px">No items assigned to custom categories yet.</div>';
+    document.getElementById('settings-items-list').innerHTML = itemsListHtml;
+}
+
+async function addCategory(){
+    const name = document.getElementById('new-cat-name').value.trim();
+    const emoji = document.getElementById('new-cat-emoji').value.trim();
+    const color = document.getElementById('new-cat-color').value;
+    if(!name || !emoji) return;
+    
+    try {
+        await db.collection('posCategories').add({ name, emoji, color, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        toast('Category added!', 'success');
+        document.getElementById('new-cat-name').value = '';
+        document.getElementById('new-cat-emoji').value = '';
+    } catch(err) {
+        toast('Error adding category: ' + err.message, 'error');
+        console.error(err);
+    }
+}
+
+async function deleteCategory(id) {
+    if(!confirm("Are you sure? Items inside this category won't be deleted automatically.")) return;
+    try {
+        await db.collection('posCategories').doc(id).delete();
+        toast('Category deleted', 'info');
+    } catch(err) {
+        toast('Error deleting: ' + err.message, 'error');
+    }
+}
+
+async function assignItem(){
+    const itemId = document.getElementById('assign-item-id').value;
+    const categoryId = document.getElementById('assign-item-cat').value;
+    
+    if(!itemId || !categoryId) {
+        toast('Please select an item and a category', 'error');
+        return;
+    }
+    
+    const item = allItems.find(i => i.id === itemId);
+    if(!item || item.collectionRef === 'posItems') return;
+
+    try {
+        await db.collection(item.collectionRef).doc(item.id).update({
+            posCategoryId: categoryId
+        });
+        toast('Item assigned!', 'success');
+        document.getElementById('assign-item-id').value = '';
+        document.getElementById('assign-item-cat').value = '';
+    } catch(err) {
+        toast('Error assigning item: ' + err.message, 'error');
+        console.error(err);
+    }
+}
+
+async function unassignItem(id, collectionRef) {
+    if(!confirm("Unassign this item? It will return to its default category.")) return;
+    try {
+        await db.collection(collectionRef).doc(id).update({
+            posCategoryId: firebase.firestore.FieldValue.delete()
+        });
+        toast('Item unassigned', 'info');
+    } catch(err) {
+        toast('Error unassigning: ' + err.message, 'error');
+    }
+}
+
+async function deleteLegacyItem(id) {
+    if(!confirm("Delete this legacy custom item?")) return;
+    try {
+        await db.collection('posItems').doc(id).delete();
+        toast('Item deleted', 'info');
+    } catch(err) {
+        toast('Error deleting: ' + err.message, 'error');
+    }
+}
+
+// ====== DAILY REPORT PDF ======
+function downloadDailyReport() {
+    const soldItems = allItems.filter(i => i.sold && i.sold > 0);
+    
+    if (soldItems.length === 0) {
+        toast('No sales recorded today yet', 'error');
+        return;
+    }
+
+    const dateStr = new Date().toLocaleString();
+    let totalRevenue = 0;
+
+    // Group items by category
+    const groupedItems = {};
+    soldItems.forEach(item => {
+        const catName = posCategoriesData.find(c => c.id === item.category)?.name || item.category;
+        if (!groupedItems[catName]) {
+            groupedItems[catName] = [];
+        }
+        groupedItems[catName].push(item);
+    });
+
+    let html = `
+    <div style="font-family: 'Inter', sans-serif; padding: 40px; color: #000; background: #fff; width: 800px;">
+        <h1 style="text-align:center; font-size:28px; margin-bottom: 5px; color: #000;">🍽️ Foodie POS - Daily Sales Report</h1>
+        <p style="text-align:center; font-size:14px; color: #666; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+            Generated on: ${dateStr}
+        </p>
+    `;
+
+    for (const [catName, items] of Object.entries(groupedItems)) {
+        let catTotal = 0;
+        let catSoldQty = 0;
+
+        html += `
+        <h2 style="font-size: 18px; color: #333; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #ddd; padding-bottom: 5px;">
+            📁 ${catName}
+        </h2>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background:#f8f9fa; border-bottom: 2px solid #ddd;">
+                    <th style="text-align:left; padding:10px; font-size:14px;">Item</th>
+                    <th style="text-align:right; padding:10px; font-size:14px;">Price Unit</th>
+                    <th style="text-align:right; padding:10px; font-size:14px;">Qty Sold</th>
+                    <th style="text-align:right; padding:10px; font-size:14px;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        items.forEach(item => {
+            const itemTotal = item.price * item.sold;
+            catTotal += itemTotal;
+            catSoldQty += item.sold;
+            totalRevenue += itemTotal;
+            
+            html += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding:10px; font-size:13px; color: #000;">${item.emoji || ''} ${item.name}</td>
+                    <td style="text-align:right; padding:10px; font-size:13px; color: #000;">Rs. ${item.price.toFixed(2)}</td>
+                    <td style="text-align:right; padding:10px; font-size:13px; font-weight:bold; color: #000;">${item.sold}</td>
+                    <td style="text-align:right; padding:10px; font-size:13px; color: #000;">Rs. ${itemTotal.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                <tr style="background:#fafafa; font-weight:bold;">
+                    <td colspan="2" style="text-align:right; padding:10px; font-size:13px; color: #000;">Category Subtotal:</td>
+                    <td style="text-align:right; padding:10px; font-size:13px; color: #000;">${catSoldQty}</td>
+                    <td style="text-align:right; padding:10px; font-size:13px; color: #000;">Rs. ${catTotal.toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+        `;
+    }
+
+    html += `
+        <div style="display:flex; justify-content:flex-end; margin-top: 30px;">
+            <div style="background:#f8f9fa; padding:20px; border-radius:8px; width:300px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px; color: #000;">
+                    <span>Total Items Sold:</span>
+                    <strong>${soldItems.reduce((acc, curr) => acc + curr.sold, 0)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:18px; font-weight:bold; color:#000; border-top:2px solid #ddd; padding-top:10px;">
+                    <span>Grand Total:</span>
+                    <span>Rs. ${totalRevenue.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top: 50px; font-size:12px; color:#aaa;">
+            End of Report - Foodie POS
+        </div>
+    </div>
+    `;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    document.body.appendChild(tempDiv);
+
+    toast('Generating PDF...', 'info');
+
+    html2pdf().set({
+        margin: 0,
+        filename: 'Daily_Sales_Report_' + new Date().toISOString().split('T')[0] + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(tempDiv.children[0]).save().then(() => {
+        document.body.removeChild(tempDiv);
+        toast('PDF Downloaded!', 'success');
+    }).catch(err => {
+        console.error(err);
+        toast('Error generating PDF', 'error');
+        document.body.removeChild(tempDiv);
+    });
+}
+
+// ====== INIT UI ======
+renderItems();
+</script>
+</body>
+</html>
